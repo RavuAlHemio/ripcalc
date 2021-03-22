@@ -73,7 +73,10 @@ pub fn write_in_color<S: AsRef<str>>(text: S, color: Option<Color>, pad_to: isiz
                     Color::White => styled.bright().white(),
                 };
                 print!("{}", colored);
+                return;
             }
         }
     }
+
+    println!("{}", padded);
 }
