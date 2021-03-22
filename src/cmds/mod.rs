@@ -32,6 +32,7 @@ static IPV6_WITH_CIDR_REGEX: Lazy<Regex> = Lazy::new(||
 );
 
 
+/// An IP address that has been parsed from a string.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ParsedIpAddress {
     Ipv4(Ipv4Address),
@@ -46,12 +47,15 @@ impl ParsedIpAddress {
     }
 }
 
+/// An IP network specification parsed from a string, consisting of an IP address and a network
+/// within which this IP address is contained.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum NetworkSpec {
     Ipv4(Ipv4Address, IpNetwork<Ipv4Address>),
     Ipv6(Ipv6Address, IpNetwork<Ipv6Address>),
 }
 
+/// A list of IP network specifications parsed from strings.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum NetworkSpecs {
     Nothing,
@@ -60,6 +64,8 @@ pub enum NetworkSpecs {
     Ipv6(Vec<(Ipv6Address, IpNetwork<Ipv6Address>)>),
 }
 
+/// A subnet specification parsed from a string, in the form of either a CIDR prefix or a subnet
+/// mask.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ParsedSubnet {
     Cidr(usize),
@@ -67,12 +73,27 @@ pub enum ParsedSubnet {
     Ipv6Mask(Ipv6Address),
 }
 
+/// An error that occurs when attempting to parse an IP network specification.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ParseNetspecError {
+    /// The format of the IP network specification was not recognized. The contained string is the
+    /// original specification string.
     Unrecognized(String),
+
+    /// The IP address could not be parsed. The contained error describes why parsing the IP address
+    /// failed.
     Address(IpAddressParseError),
+
+    /// The subnet mask could not be parsed. The contained error describes why parsing the mask
+    /// failed.
     Mask(IpAddressParseError),
+
+    /// The CIDR prefix could not be parsed. The contained error describes why parsing the prefix
+    /// failed.
     CidrParse(ParseIntError),
+
+    /// The parsed CIDR prefix is out of range. The first value is the CIDR prefix that was parsed
+    /// and the second value is the maximum CIDR prefix for the given IP address type.
     CidrRange(usize, usize),
 }
 impl fmt::Display for ParseNetspecError {
@@ -95,6 +116,7 @@ impl Error for ParseNetspecError {
 }
 
 
+/// Attempts to parse a single IP address.
 pub fn parse_addr(spec: &str) -> Result<ParsedIpAddress, IpAddressParseError> {
     if spec.contains('.') {
         if spec.contains(':') {
@@ -112,6 +134,7 @@ pub fn parse_addr(spec: &str) -> Result<ParsedIpAddress, IpAddressParseError> {
     }
 }
 
+/// Attempts to parse a single IP network specification (address + network).
 pub fn parse_netspec(spec: &str) -> Result<NetworkSpec, ParseNetspecError> {
     if let Some(caps) = IPV4_WITH_SUBNET_REGEX.captures(spec) {
         let addr_str = caps.name("addr").expect("'addr' captured").as_str();
@@ -184,6 +207,8 @@ pub fn parse_netspec(spec: &str) -> Result<NetworkSpec, ParseNetspecError> {
     }
 }
 
+/// Attempts to parse multiple IP network specifications (address + network), ensuring that all are
+/// of the same IP version.
 pub fn parse_same_family_netspecs<S: AsRef<str>>(spec_strs: &[S]) -> Result<NetworkSpecs, ParseNetspecError> {
     if spec_strs.len() == 0 {
         return Ok(NetworkSpecs::Nothing);
@@ -227,6 +252,7 @@ pub fn parse_same_family_netspecs<S: AsRef<str>>(spec_strs: &[S]) -> Result<Netw
     }
 }
 
+/// Attempts to parse a subnet specification (mask or CIDR prefix).
 pub fn parse_subnet(spec: &str) -> Result<ParsedSubnet, ParseNetspecError> {
     if spec.contains(':') {
         let ipv6_addr: Ipv6Address = match spec.parse() {

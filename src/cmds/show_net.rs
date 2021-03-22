@@ -259,6 +259,7 @@ fn output_binary_ipv6_address(
     }
 }
 
+/// Outputs and dissects information about an IPv4 network.
 pub fn output_ipv4_network(net: IpNetwork<Ipv4Address>, addr: Option<Ipv4Address>) {
     output_network(
         11,
@@ -270,6 +271,7 @@ pub fn output_ipv4_network(net: IpNetwork<Ipv4Address>, addr: Option<Ipv4Address
     )
 }
 
+/// Outputs and dissects information about an IPv6 network.
 pub fn output_ipv6_network(net: IpNetwork<Ipv6Address>, addr: Option<Ipv6Address>) {
     output_network(
         11,

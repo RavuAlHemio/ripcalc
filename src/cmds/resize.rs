@@ -103,6 +103,8 @@ fn resize_and_output<A: IpAddress, ON: Fn(IpNetwork<A>, Option<A>)>(initial_net:
     }
 }
 
+/// Resizes the given network to the given subnet mask, returning the network or networks created by
+/// this operation as well as whether a supernet, a same-sized net or multiple subnets were created.
 pub fn resize_network<A: IpAddress>(initial_net: IpNetwork<A>, new_subnet_mask: A) -> (Vec<IpNetwork<A>>, Ordering) {
     let initial_host_bits = initial_net.subnet_mask().count_zeros();
     let new_net_bits: usize = new_subnet_mask.count_ones().try_into().unwrap();

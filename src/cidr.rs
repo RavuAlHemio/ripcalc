@@ -19,6 +19,8 @@ const SUBNET_MASK_BYTE_TO_PREFIX: [u8; 256] = [
 ];
 const CIDR_BYTE_TO_PREFIX: [u8; 9] = [0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF];
 
+/// Attempts to decode a subnet mask (encoded as a byte slice) into its equivalent CIDR prefix.
+/// Returns `None` for mixed subnet masks.
 pub fn prefix_from_subnet_mask_bytes(bs: &[u8]) -> Option<usize> {
     let mut ones_over = false;
     let mut cidr: usize = 0;
@@ -56,6 +58,7 @@ pub fn prefix_from_subnet_mask_bytes(bs: &[u8]) -> Option<usize> {
     Some(cidr)
 }
 
+/// Converts a CIDR prefix into its equivalent subnet mask.
 pub fn subnet_mask_bytes_from_prefix(mut prefix: usize, byte_count: usize) -> Vec<u8> {
     let mut ret = Vec::with_capacity(byte_count);
     while prefix > 0 && ret.len() < byte_count {

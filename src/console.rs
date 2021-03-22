@@ -3,6 +3,7 @@ use std::convert::TryInto;
 #[cfg(feature = "console")]
 use console;
 
+/// An ANSI color code for color terminals.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Color {
     Black,
@@ -23,6 +24,8 @@ pub enum Color {
     White,
 }
 
+/// Outputs text, optionally in a given color, padded to a specific length. Positive padding values
+/// pad at the end, negative at the beginning.
 pub fn write_in_color<S: AsRef<str>>(text: S, color: Option<Color>, pad_to: isize) {
     // pad the string
     let mut padded = String::from(text.as_ref());

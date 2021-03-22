@@ -84,7 +84,8 @@ fn output_split<A: IpAddress, ON: Fn(IpNetwork<A>, Option<A>)>(subnet: IpNetwork
     0
 }
 
-fn split_subnet<A: IpAddress>(subnet: IpNetwork<A>, host_counts: Vec<BigInt>) -> Option<Vec<IpNetwork<A>>> {
+/// Splits a larger network into smaller networks, each housing at least a specific number of hosts.
+pub fn split_subnet<A: IpAddress>(subnet: IpNetwork<A>, host_counts: Vec<BigInt>) -> Option<Vec<IpNetwork<A>>> {
     // sort descending by size
     let mut indexes_and_host_counts: Vec<(usize, BigInt)> = host_counts.iter()
         .enumerate()

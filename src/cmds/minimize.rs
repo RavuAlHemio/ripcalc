@@ -48,6 +48,9 @@ pub fn minimize(args: &[String]) -> i32 {
     }
 }
 
+/// Minimizes the list of networks such that duplicate entries and networks that are subnets of
+/// other networks in the list are removed from the list, and adjacent networks are merged if
+/// possible.
 pub fn minimize_subnets<A: IpAddress>(
     mut subnets: Vec<IpNetwork<A>>,
 ) -> Vec<IpNetwork<A>> {

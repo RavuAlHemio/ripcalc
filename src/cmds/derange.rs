@@ -51,6 +51,8 @@ pub fn derange(args: &[String]) -> i32 {
 }
 
 
+/// Converts a range of IP addresses (whose inclusive ends are passed as `end_one` and `end_two`)
+/// into the equivalent set of IP networks.
 pub fn range_to_subnets<A: IpAddress>(
     end_one: A,
     end_two: A,

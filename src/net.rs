@@ -5,6 +5,7 @@ use crate::addr::IpAddress;
 use crate::{bit_manip, cidr};
 
 
+/// An IP network, consisting of a base address and subnet mask.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct IpNetwork<A: IpAddress> {
     base_addr: A,
@@ -13,6 +14,7 @@ pub struct IpNetwork<A: IpAddress> {
 }
 
 impl<A: IpAddress> IpNetwork<A> {
+    /// Creates a new IpNetwork from the given IP address and subnet mask.
     pub fn new_with_mask(
         addr: A,
         subnet_mask: A,
@@ -27,6 +29,7 @@ impl<A: IpAddress> IpNetwork<A> {
         }
     }
 
+    /// Creates a new IpNetwork from the given IP address and CIDR prefix.
     pub fn new_with_prefix(
         addr: A,
         cidr_prefix: usize,
@@ -43,14 +46,22 @@ impl<A: IpAddress> IpNetwork<A> {
         }
     }
 
+    /// The base address of this IP network.
     pub fn base_addr(&self) -> A { self.base_addr }
+
+    /// The subnet mask of this IP network.
     pub fn subnet_mask(&self) -> A { self.subnet_mask }
+
+    /// The CIDR prefix of this IP network, or None if this network has a mixed subnet mask (i.e. a
+    /// subnet mask with network and host bits interspersed).
     pub fn cidr_prefix(&self) -> Option<usize> { self.cidr_prefix }
 
+    /// The Cisco wildcard of this IP network, i.e. the bitwise complement of the subnet mask.
     pub fn cisco_wildcard(&self) -> A {
         self.subnet_mask.bitwise_negate()
     }
 
+    /// The number of addresses in this network.
     #[cfg(feature = "num-bigint")]
     pub fn address_count(&self) -> num_bigint::BigUint {
         let mut ret = num_bigint::BigUint::from(1u32);
@@ -63,12 +74,15 @@ impl<A: IpAddress> IpNetwork<A> {
         ret
     }
 
+    /// The number of host addresses, i.e. non-network and non-broadcast addresses, in this network.
     #[cfg(feature = "num-bigint")]
     pub fn host_count(&self) -> num_bigint::BigInt {
         let addr_count: num_bigint::BigInt = self.address_count().into();
         addr_count - 2
     }
 
+    /// The address of the first host in this network, or `None` if the network has too few
+    /// addresses to have even a single host address.
     pub fn first_host_addr(&self) -> Option<A> {
         let host_bits_available: usize = self.cisco_wildcard().to_bytes()
             .iter()
@@ -87,6 +101,8 @@ impl<A: IpAddress> IpNetwork<A> {
         Some(bit_manip::weave_address(unraveled_first_host, self.subnet_mask))
     }
 
+    /// The broadcast address of this network, or `None` if the network has too few addresses to
+    /// have a broadcast address.
     pub fn broadcast_addr(&self) -> Option<A> {
         let host_bits_available: usize = self.cisco_wildcard().to_bytes()
             .iter()
@@ -110,6 +126,8 @@ impl<A: IpAddress> IpNetwork<A> {
         Some(bit_manip::weave_address(unraveled_broadcast, self.subnet_mask))
     }
 
+    /// The address of the last host in this network, or `None` if the network has too few addresses
+    /// to have even a single host address.
     pub fn last_host_addr(&self) -> Option<A> {
         let host_bits_available: usize = self.cisco_wildcard().to_bytes()
             .iter()
@@ -135,6 +153,8 @@ impl<A: IpAddress> IpNetwork<A> {
         Some(bit_manip::weave_address(unraveled_last_host, self.subnet_mask))
     }
 
+    /// The base address of the network immediately following this one, or `None` if this network
+    /// borders the end of the address space.
     pub fn next_subnet_base_addr(&self) -> Option<A> {
         let host_bits_available: usize = self.cisco_wildcard().to_bytes()
             .iter()
@@ -153,14 +173,19 @@ impl<A: IpAddress> IpNetwork<A> {
         Some(bit_manip::weave_address(unraveled_next_base, self.subnet_mask))
     }
 
+    /// The last address of the network, which is the broadcast address or, if there is no broadcast
+    /// address, the base address of the network.
     pub fn last_addr_of_subnet(&self) -> A {
         self.broadcast_addr().unwrap_or(self.base_addr)
     }
 
+    /// Returns whether this network contains the given address.
     pub fn contains(&self, addr: &A) -> bool {
         (*addr & self.subnet_mask) == self.base_addr
     }
 
+    /// Returns whether this network is a superset of another network, i.e. all addresses that are
+    /// contained in the other network are also contained in this network.
     pub fn is_superset_of(&self, other: &IpNetwork<A>) -> bool {
         // a network A is a superset of a network B if:
         // 1. the base address of B bitwise AND with the subnet mask of A returns the base address of A
@@ -171,10 +196,14 @@ impl<A: IpAddress> IpNetwork<A> {
             && (other.subnet_mask & self.subnet_mask == self.subnet_mask)
     }
 
+    /// Returns whether this network is a subset of another network, i.e. all addresses that are
+    /// contained in this network are also contained in the other network.
     pub fn is_subset_of(&self, other: &IpNetwork<A>) -> bool {
         other.is_superset_of(self)
     }
 
+    /// Returns whether this network and another network intersect, i.e. there is at least one
+    /// address that is contained in both networks.
     pub fn intersects(&self, other: &IpNetwork<A>) -> bool {
         let self_first = self.base_addr;
         let self_last = self.last_addr_of_subnet();

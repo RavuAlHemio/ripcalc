@@ -6,19 +6,47 @@ use std::num::ParseIntError;
 use std::ops::{BitAnd, BitOr, BitXor};
 use std::str::FromStr;
 
+/// This trait is to be implemented by structures that represent an IP address or a similar network
+/// address.
 pub trait IpAddress: BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self> + Copy + fmt::Display + Hash + Ord + Sized {
+    /// Returns the number of bytes required to encode this IP address in full.
     fn byte_count(&self) -> usize;
+
+    /// Returns the number of bits within this IP address that have the value 1.
     fn count_ones(&self) -> u32;
+
+    /// Returns the number of bits within this IP address that have the value 0.
     fn count_zeros(&self) -> u32;
+
+    /// Serializes this IP address into its canonical byte-sequence representation.
     fn to_bytes(&self) -> Vec<u8>;
+
+    /// Attempts to deserialize an IP address from its canonical byte-sequence representation.
+    ///
+    /// Returns `None` if this fails, e.g. because the byte sequence has the wrong length.
     fn from_bytes(bytes: &[u8]) -> Option<Self>;
+
+    /// Returns this IP address with each bit negated.
     fn bitwise_negate(&self) -> Self;
+
+    /// Returns the sum (with carry) of this and another IP address. Returns `None` if the addition
+    /// overflows beyond the range of the IP address.
     fn add_addr(&self, other: &Self) -> Option<Self>;
+
+    /// Returns the sum of this IP address and an offset. Returns `None` if the addition overflows
+    /// beyond the range of the IP address.
     fn add_offset(&self, offset: i32) -> Option<Self>;
+
+    /// Returns the difference (with borrow) between this and another IP address. Returns `None` if
+    /// the subtraction overflows beyond the range of the IP address.
     fn subtract_addr(&self, other: &Self) -> Option<Self>;
+
+    /// Returns the difference (with borrow) between this IP address and an offset. Returns `None`
+    /// if the subtraction overflows beyond the range of the IP address.
     fn subtract_offset(&self, offset: i32) -> Option<Self>;
 }
 
+/// An IPv4 address.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Ipv4Address {
     addr_value: u32,
@@ -27,6 +55,9 @@ pub struct Ipv4Address {
 pub const IPV4_ZERO: Ipv4Address = Ipv4Address { addr_value: 0 };
 
 impl Ipv4Address {
+    /// Constructs a new IPv4 address from its 32-bit representation, where the leftmost byte in the
+    /// canonical string representation is the most significant byte (i.e. `"1.2.3.4"` ->
+    /// `0x01020304`).
     pub fn new(
         addr_value: u32,
     ) -> Ipv4Address {
@@ -160,6 +191,7 @@ impl BitXor for Ipv4Address {
     }
 }
 
+/// An IPv6 address.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Ipv6Address {
     top_half: u64,
@@ -169,6 +201,10 @@ pub struct Ipv6Address {
 pub const IPV6_ZERO: Ipv6Address = Ipv6Address { top_half: 0, bottom_half: 0 };
 
 impl Ipv6Address {
+    /// Constructs a new IPv6 address from its representation as a pair of 64-bit integers, where
+    /// the leftmost byte in the canonical string representation is the most significant byte of
+    /// the top half (i.e. `"0102:0304:0506:0708:090a:0b0c:0d0e:0f00"` ->
+    /// `Ipv6Address::new(0x0102030405060708, 0x090a0b0c0d0e0f00)`).
     pub fn new(
         top_half: u64,
         bottom_half: u64,
@@ -179,6 +215,8 @@ impl Ipv6Address {
         }
     }
 
+    /// Outputs the IPv6 address in its full string representation with all leading zeroes and no
+    /// omissions of consecutive zero fields.
     pub fn to_full_string(&self) -> String {
         let chunks = self.to_chunks();
         let mut chunk_strings = Vec::with_capacity(chunks.len());
@@ -188,6 +226,7 @@ impl Ipv6Address {
         chunk_strings.join(":")
     }
 
+    /// Returns this address represented as 16-bit chunks.
     pub fn to_chunks(&self) -> Vec<u16> {
         let mut ret: Vec<u16> = Vec::with_capacity(8);
         ret.push(((self.top_half >> 48) & 0xFFFF).try_into().unwrap());
@@ -201,6 +240,8 @@ impl Ipv6Address {
         ret
     }
 
+    /// Attempts to create an IPv6 address from its 16-bit chunk representation. Returns `None` if
+    /// the number of chunks is incorrect.
     pub fn from_chunks(chunks: &[u16]) -> Option<Ipv6Address> {
         if chunks.len() != 8 {
             None
