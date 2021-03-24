@@ -61,5 +61,8 @@ test:
   needs:
     - job: build-arch
       artifacts: true
+  before_script:
+    - "pacman -Syu --noconfirm"
+    - "pacman -S --needed --noconfirm cargo base-devel"
   script:
     - "cargo test"
