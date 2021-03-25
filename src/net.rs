@@ -46,6 +46,34 @@ impl<A: IpAddress> IpNetwork<A> {
         }
     }
 
+    /// Creates a new IpNetwork from the given IP address and subnet mask. Returns `None` if `addr`
+    /// is not the base address of the specified subnet.
+    pub fn new_with_mask_strict(
+        addr: A,
+        subnet_mask: A,
+    ) -> Option<IpNetwork<A>> {
+        let net = Self::new_with_mask(addr, subnet_mask);
+        if net.base_addr() == addr {
+            Some(net)
+        } else {
+            None
+        }
+    }
+
+    /// Creates a new IpNetwork from the given IP address and CIDR prefix. Returns `None` if `addr`
+    /// is not the base address of the specified subnet.
+    pub fn new_with_prefix_strict(
+        addr: A,
+        cidr_prefix: usize,
+    ) -> Option<IpNetwork<A>> {
+        let net = Self::new_with_prefix(addr, cidr_prefix);
+        if net.base_addr() == addr {
+            Some(net)
+        } else {
+            None
+        }
+    }
+
     /// The base address of this IP network.
     pub fn base_addr(&self) -> A { self.base_addr }
 
@@ -491,6 +519,188 @@ mod test {
 
     #[test]
     fn test_ipv6_new_with_prefix() {
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_prefix(
+            parse_addr("feba::"),
+            10,
+        );
+        assert_eq!(parse_addr::<Ipv6Address>("fe80::"), net.base_addr());
+        assert_eq!(parse_addr::<Ipv6Address>("ffc0::"), net.subnet_mask());
+        assert_eq!(Some(10), net.cidr_prefix);
+    }
+
+    #[test]
+    fn test_ipv4_new_with_mask_strict() {
+        // CIDR mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.0"),
+                parse_ipv4("255.0.0.0"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.1"),
+                parse_ipv4("255.0.0.0"),
+            )
+                .is_none()
+        );
+
+        // mixed mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.0"),
+                parse_ipv4("255.0.255.0"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.1"),
+                parse_ipv4("255.0.255.0"),
+            )
+                .is_none()
+        );
+
+        // full mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.1"),
+                parse_ipv4("255.255.255.255"),
+            )
+                .is_some()
+        );
+
+        // point-to-point mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.0"),
+                parse_ipv4("255.255.255.254"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("127.0.0.1"),
+                parse_ipv4("255.255.255.254"),
+            )
+                .is_none()
+        );
+
+        // full-space subnet
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("0.0.0.0"),
+                parse_ipv4("0.0.0.0"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv4("5.0.0.0"),
+                parse_ipv4("0.0.0.0"),
+            )
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_ipv6_new_with_mask_strict() {
+        // CIDR mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("fe80::"),
+                parse_ipv6("ffc0::"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("fe80::1"),
+                parse_ipv6("ffc0::"),
+            )
+                .is_none()
+        );
+
+        // mixed mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("1234:0:1234::1234:0:1234"),
+                parse_ipv6("ffff:0000:ffff:0000:0000:ffff:0000:ffff"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("1234:1234:1234:1234:1234:1234:1234:1234"),
+                parse_ipv6("ffff:0000:ffff:0000:0000:ffff:0000:ffff"),
+            )
+                .is_none()
+        );
+
+        // full mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("::1"),
+                parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+            )
+                .is_some()
+        );
+
+        // point-to-point mask
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("fe80::2"),
+                parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("fe80::3"),
+                parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
+            )
+                .is_none()
+        );
+
+        // full-space subnet
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("::"),
+                parse_ipv6("::"),
+            )
+                .is_some()
+        );
+        assert!(
+            IpNetwork::new_with_mask_strict(
+                parse_ipv6("1::"),
+                parse_ipv6("::"),
+            )
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_ipv4_new_with_prefix_strict() {
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
+            parse_addr("127.0.0.1"),
+            8,
+        );
+        assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.0.0.0"), net.subnet_mask());
+        assert_eq!(Some(8), net.cidr_prefix);
+
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
+            parse_addr("1.2.3.4"),
+            24,
+        );
+        assert_eq!(parse_ipv4("1.2.3.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.255.255.0"), net.subnet_mask());
+        assert_eq!(Some(24), net.cidr_prefix);
+    }
+
+    #[test]
+    fn test_ipv6_new_with_prefix_strict() {
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_prefix(
             parse_addr("feba::"),
             10,
