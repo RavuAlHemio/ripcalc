@@ -85,17 +85,8 @@ pub fn range_to_subnets<A: IpAddress>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::addr::{Ipv4Address, Ipv6Address};
-    use crate::net::IpNetwork;
+    use crate::net::test::{parse_ipv4, parse_ipv4net, parse_ipv6, parse_ipv6net};
 
-    fn parse_ipv4(s: &str) -> Ipv4Address { s.parse().unwrap() }
-    fn parse_ipv6(s: &str) -> Ipv6Address { s.parse().unwrap() }
-    fn parse_ipv4net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv4Address> {
-        IpNetwork::new_with_prefix(addr_str.parse().unwrap(), cidr)
-    }
-    fn parse_ipv6net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv6Address> {
-        IpNetwork::new_with_prefix(addr_str.parse().unwrap(), cidr)
-    }
 
     #[test]
     fn test_derange_single_subnet() {

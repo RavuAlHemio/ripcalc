@@ -138,14 +138,7 @@ pub fn minimize_subnets<A: IpAddress>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::addr::Ipv4Address;
-
-    fn parse_ipv4net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv4Address> {
-        IpNetwork::new_with_prefix(addr_str.parse().unwrap(), cidr)
-    }
-    fn parse_ipv4netm(addr_str: &str, mask_str: &str) -> IpNetwork<Ipv4Address> {
-        IpNetwork::new_with_mask(addr_str.parse().unwrap(), mask_str.parse().unwrap())
-    }
+    use crate::net::test::{parse_ipv4net, parse_ipv4netm, parse_ipv6net, parse_ipv6netm};
 
     #[test]
     fn test_minimize() {

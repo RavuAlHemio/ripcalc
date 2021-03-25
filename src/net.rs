@@ -253,25 +253,47 @@ impl<A: IpAddress> fmt::Display for IpNetwork<A> {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
-    use std::str::FromStr;
     #[cfg(feature = "num-bigint")]
     use num_bigint::{BigInt, BigUint};
-    use crate::addr::{IpAddressParseError, Ipv4Address, Ipv6Address};
+    use crate::addr::{Ipv4Address, Ipv6Address};
 
-    fn parse_addr<A: FromStr<Err = IpAddressParseError> + IpAddress>(s: &str) -> A { s.parse().unwrap() }
-    fn parse_ipv4(s: &str) -> Ipv4Address { parse_addr(s) }
-    fn parse_ipv6(s: &str) -> Ipv6Address { parse_addr(s) }
-    fn parse_bigint(s: &str) -> BigInt { s.parse().unwrap() }
-    fn parse_biguint(s: &str) -> BigUint { s.parse().unwrap() }
+    // utility functions for network-related unit tests
+    // (unit tests for this module follow)
+    pub fn parse_ipv4(s: &str) -> Ipv4Address { s.parse().unwrap() }
+    pub fn parse_ipv6(s: &str) -> Ipv6Address { s.parse().unwrap() }
+    pub fn parse_bigint(s: &str) -> BigInt { s.parse().unwrap() }
+    pub fn parse_biguint(s: &str) -> BigUint { s.parse().unwrap() }
+    pub fn parse_ipv4net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv4Address> {
+        let base_addr = addr_str.parse().expect("IP address is invalid");
+        IpNetwork::new_with_prefix_strict(base_addr, cidr)
+            .expect("\"base address\" has host bits set")
+    }
+    pub fn parse_ipv6net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv6Address> {
+        let base_addr = addr_str.parse().expect("IP address is invalid");
+        IpNetwork::new_with_prefix_strict(base_addr, cidr)
+            .expect("\"base address\" has host bits set")
+    }
+    pub fn parse_ipv4netm(addr_str: &str, mask_str: &str) -> IpNetwork<Ipv4Address> {
+        let base_addr = addr_str.parse().expect("IP address is invalid");
+        let subnet_mask = mask_str.parse().expect("subnet mask is invalid");
+        IpNetwork::new_with_mask_strict(base_addr, subnet_mask)
+            .expect("\"base address\" has host bits set")
+    }
+    pub fn parse_ipv6netm(addr_str: &str, mask_str: &str) -> IpNetwork<Ipv6Address> {
+        let base_addr = addr_str.parse().expect("IP address is invalid");
+        let subnet_mask = mask_str.parse().expect("subnet mask is invalid");
+        IpNetwork::new_with_mask_strict(base_addr, subnet_mask)
+            .expect("\"base address\" has host bits set")
+    }
 
     #[test]
     fn test_ipv4_new_with_mask() {
         // CIDR mask
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
-            parse_addr("127.0.0.1"),
-            parse_addr("255.0.0.0"),
+            parse_ipv4("127.0.0.1"),
+            parse_ipv4("255.0.0.0"),
         );
         assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
         assert_eq!(parse_ipv4("255.0.0.0"), net.subnet_mask());
@@ -294,8 +316,8 @@ mod test {
 
         // mixed mask
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
-            parse_addr("127.0.0.1"),
-            parse_addr("255.0.255.0"),
+            parse_ipv4("127.0.0.1"),
+            parse_ipv4("255.0.255.0"),
         );
         assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
         assert_eq!(parse_ipv4("255.0.255.0"), net.subnet_mask());
@@ -318,8 +340,8 @@ mod test {
 
         // full mask
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
-            parse_addr("127.0.0.1"),
-            parse_addr("255.255.255.255"),
+            parse_ipv4("127.0.0.1"),
+            parse_ipv4("255.255.255.255"),
         );
         assert_eq!(parse_ipv4("127.0.0.1"), net.base_addr());
         assert_eq!(parse_ipv4("255.255.255.255"), net.subnet_mask());
@@ -340,8 +362,8 @@ mod test {
 
         // point-to-point mask
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
-            parse_addr("127.0.0.1"),
-            parse_addr("255.255.255.254"),
+            parse_ipv4("127.0.0.1"),
+            parse_ipv4("255.255.255.254"),
         );
         assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
         assert_eq!(parse_ipv4("255.255.255.254"), net.subnet_mask());
@@ -361,8 +383,8 @@ mod test {
 
         // full-space subnet
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
-            parse_addr("0.0.0.0"),
-            parse_addr("0.0.0.0"),
+            parse_ipv4("0.0.0.0"),
+            parse_ipv4("0.0.0.0"),
         );
         assert_eq!(parse_ipv4("0.0.0.0"), net.base_addr());
         assert_eq!(parse_ipv4("0.0.0.0"), net.subnet_mask());
@@ -387,8 +409,8 @@ mod test {
     fn test_ipv6_new_with_mask() {
         // CIDR mask
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
-            parse_addr("fe80::1"),
-            parse_addr("ffc0::"),
+            parse_ipv6("fe80::1"),
+            parse_ipv6("ffc0::"),
         );
         assert_eq!(parse_ipv6("fe80::"), net.base_addr());
         assert_eq!(parse_ipv6("ffc0::"), net.subnet_mask());
@@ -411,8 +433,8 @@ mod test {
 
         // mixed mask
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
-            parse_addr("1234:1234:1234:1234:1234:1234:1234:1234"),
-            parse_addr("ffff:0000:ffff:0000:0000:ffff:0000:ffff"),
+            parse_ipv6("1234:1234:1234:1234:1234:1234:1234:1234"),
+            parse_ipv6("ffff:0000:ffff:0000:0000:ffff:0000:ffff"),
         );
         assert_eq!(parse_ipv6("1234:0000:1234:0000:0000:1234:0000:1234"), net.base_addr());
         assert_eq!(parse_ipv6("ffff:0000:ffff:0000:0000:ffff:0000:ffff"), net.subnet_mask());
@@ -435,8 +457,8 @@ mod test {
 
         // full mask
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
-            parse_addr("::1"),
-            parse_addr("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+            parse_ipv6("::1"),
+            parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
         );
         assert_eq!(parse_ipv6("::1"), net.base_addr());
         assert_eq!(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"), net.subnet_mask());
@@ -455,8 +477,8 @@ mod test {
 
         // point-to-point mask
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
-            parse_addr("fe80::3"),
-            parse_addr("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
+            parse_ipv6("fe80::3"),
+            parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
         );
         assert_eq!(parse_ipv6("fe80::2"), net.base_addr());
         assert_eq!(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"), net.subnet_mask());
@@ -476,8 +498,8 @@ mod test {
 
         // full-space subnet
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
-            parse_addr("::"),
-            parse_addr("::"),
+            parse_ipv6("::"),
+            parse_ipv6("::"),
         );
         assert_eq!(parse_ipv6("::"), net.base_addr());
         assert_eq!(parse_ipv6("::"), net.subnet_mask());
@@ -501,7 +523,7 @@ mod test {
     #[test]
     fn test_ipv4_new_with_prefix() {
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
-            parse_addr("127.0.0.1"),
+            parse_ipv4("127.0.0.1"),
             8,
         );
         assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
@@ -509,7 +531,7 @@ mod test {
         assert_eq!(Some(8), net.cidr_prefix);
 
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
-            parse_addr("1.2.3.4"),
+            parse_ipv4("1.2.3.4"),
             24,
         );
         assert_eq!(parse_ipv4("1.2.3.0"), net.base_addr());
@@ -520,11 +542,11 @@ mod test {
     #[test]
     fn test_ipv6_new_with_prefix() {
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_prefix(
-            parse_addr("feba::"),
+            parse_ipv6("feba::"),
             10,
         );
-        assert_eq!(parse_addr::<Ipv6Address>("fe80::"), net.base_addr());
-        assert_eq!(parse_addr::<Ipv6Address>("ffc0::"), net.subnet_mask());
+        assert_eq!(parse_ipv6("fe80::"), net.base_addr());
+        assert_eq!(parse_ipv6("ffc0::"), net.subnet_mask());
         assert_eq!(Some(10), net.cidr_prefix);
     }
 
@@ -683,7 +705,7 @@ mod test {
     #[test]
     fn test_ipv4_new_with_prefix_strict() {
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
-            parse_addr("127.0.0.1"),
+            parse_ipv4("127.0.0.1"),
             8,
         );
         assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
@@ -691,7 +713,7 @@ mod test {
         assert_eq!(Some(8), net.cidr_prefix);
 
         let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
-            parse_addr("1.2.3.4"),
+            parse_ipv4("1.2.3.4"),
             24,
         );
         assert_eq!(parse_ipv4("1.2.3.0"), net.base_addr());
@@ -702,11 +724,11 @@ mod test {
     #[test]
     fn test_ipv6_new_with_prefix_strict() {
         let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_prefix(
-            parse_addr("feba::"),
+            parse_ipv6("feba::"),
             10,
         );
-        assert_eq!(parse_addr::<Ipv6Address>("fe80::"), net.base_addr());
-        assert_eq!(parse_addr::<Ipv6Address>("ffc0::"), net.subnet_mask());
+        assert_eq!(parse_ipv6("fe80::"), net.base_addr());
+        assert_eq!(parse_ipv6("ffc0::"), net.subnet_mask());
         assert_eq!(Some(10), net.cidr_prefix);
     }
 }
