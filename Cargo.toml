@@ -9,6 +9,6 @@ default = ["console", "num-bigint"]
 
 [dependencies]
 console = { version = "0.14", optional = true }
-num-bigint = { version = "0.3", optional = true }
+num-bigint = { version = "0.4", optional = true }
 once_cell = { version = "1.7" }
 regex = { version = "1.4" }
