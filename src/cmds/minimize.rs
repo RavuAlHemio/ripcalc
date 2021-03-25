@@ -143,10 +143,10 @@ mod test {
     #[test]
     fn test_minimize() {
         let minimize_us = vec![
-            parse_ipv4net("128.130.0.0", 16),
-            parse_ipv4net("128.131.0.0", 16),
             parse_ipv4net("128.132.0.0", 16),
             parse_ipv4net("128.133.0.0", 16),
+            parse_ipv4net("128.130.0.0", 16),
+            parse_ipv4net("128.131.0.0", 16),
             parse_ipv4net("192.35.240.0", 22),
             parse_ipv4net("192.35.244.0", 24),
             parse_ipv4net("193.170.72.0", 21),
@@ -156,24 +156,49 @@ mod test {
         ];
         let minimized = minimize_subnets(minimize_us);
         assert_eq!(5, minimized.len());
+        // (cannot minimize the next two further as the bit boundary is between them)
         assert_eq!(parse_ipv4net("128.130.0.0", 15), minimized[0]);
         assert_eq!(parse_ipv4net("128.132.0.0", 15), minimized[1]);
         assert_eq!(parse_ipv4net("192.35.240.0", 22), minimized[2]);
         assert_eq!(parse_ipv4net("192.35.244.0", 24), minimized[3]);
         assert_eq!(parse_ipv4net("193.170.72.0", 21), minimized[4]);
+
+        let minimize_us = vec![
+            parse_ipv6net("2001:db8:1::", 48),
+            parse_ipv6net("2001:db8:3::", 48),
+            parse_ipv6net("2001:db8:2::", 48),
+            parse_ipv6net("2001:db8:4::", 48),
+        ];
+        let minimized = minimize_subnets(minimize_us);
+        assert_eq!(3, minimized.len());
+        assert_eq!(parse_ipv6net("2001:db8:1::", 48), minimized[0]);
+        assert_eq!(parse_ipv6net("2001:db8:2::", 47), minimized[1]);
+        assert_eq!(parse_ipv6net("2001:db8:4::", 48), minimized[2]);
     }
 
     #[test]
     fn test_minimize_mixed() {
         let minimize_us = vec![
             parse_ipv4netm("128.0.0.130", "255.0.0.255"),
-            parse_ipv4netm("128.0.0.131", "255.0.0.255"),
             parse_ipv4netm("128.0.0.132", "255.0.0.255"),
+            parse_ipv4netm("128.0.0.131", "255.0.0.255"),
             parse_ipv4netm("128.0.0.133", "255.0.0.255"),
         ];
         let minimized = minimize_subnets(minimize_us);
         assert_eq!(2, minimized.len());
         assert_eq!(parse_ipv4netm("128.0.0.130", "255.0.0.254"), minimized[0]);
         assert_eq!(parse_ipv4netm("128.0.0.132", "255.0.0.254"), minimized[1]);
+
+        let minimize_us = vec![
+            parse_ipv6netm("2001:db8::1", "ffff:ffff::ffff"),
+            parse_ipv6netm("2001:db8::3", "ffff:ffff::ffff"),
+            parse_ipv6netm("2001:db8::2", "ffff:ffff::ffff"),
+            parse_ipv6netm("2001:db8::4", "ffff:ffff::ffff"),
+        ];
+        let minimized = minimize_subnets(minimize_us);
+        assert_eq!(3, minimized.len());
+        assert_eq!(parse_ipv6netm("2001:db8::1", "ffff:ffff::ffff"), minimized[0]);
+        assert_eq!(parse_ipv6netm("2001:db8::2", "ffff:ffff::fffe"), minimized[1]);
+        assert_eq!(parse_ipv6netm("2001:db8::4", "ffff:ffff::ffff"), minimized[2]);
     }
 }
