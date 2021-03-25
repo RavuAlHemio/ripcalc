@@ -134,3 +134,53 @@ pub fn minimize_subnets<A: IpAddress>(
     subnets.sort_unstable_by_key(|net| (net.base_addr(), net.subnet_mask()));
     subnets
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::addr::Ipv4Address;
+
+    fn parse_ipv4net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv4Address> {
+        IpNetwork::new_with_prefix(addr_str.parse().unwrap(), cidr)
+    }
+    fn parse_ipv4netm(addr_str: &str, mask_str: &str) -> IpNetwork<Ipv4Address> {
+        IpNetwork::new_with_mask(addr_str.parse().unwrap(), mask_str.parse().unwrap())
+    }
+
+    #[test]
+    fn test_minimize() {
+        let minimize_us = vec![
+            parse_ipv4net("128.130.0.0", 16),
+            parse_ipv4net("128.131.0.0", 16),
+            parse_ipv4net("128.132.0.0", 16),
+            parse_ipv4net("128.133.0.0", 16),
+            parse_ipv4net("192.35.240.0", 22),
+            parse_ipv4net("192.35.244.0", 24),
+            parse_ipv4net("193.170.72.0", 21),
+            parse_ipv4net("193.170.72.0", 22),
+            parse_ipv4net("193.170.76.0", 23),
+            parse_ipv4net("193.170.78.0", 24),
+        ];
+        let minimized = minimize_subnets(minimize_us);
+        assert_eq!(5, minimized.len());
+        assert_eq!(parse_ipv4net("128.130.0.0", 15), minimized[0]);
+        assert_eq!(parse_ipv4net("128.132.0.0", 15), minimized[1]);
+        assert_eq!(parse_ipv4net("192.35.240.0", 22), minimized[2]);
+        assert_eq!(parse_ipv4net("192.35.244.0", 24), minimized[3]);
+        assert_eq!(parse_ipv4net("193.170.72.0", 21), minimized[4]);
+    }
+
+    #[test]
+    fn test_minimize_mixed() {
+        let minimize_us = vec![
+            parse_ipv4netm("128.0.0.130", "255.0.0.255"),
+            parse_ipv4netm("128.0.0.131", "255.0.0.255"),
+            parse_ipv4netm("128.0.0.132", "255.0.0.255"),
+            parse_ipv4netm("128.0.0.133", "255.0.0.255"),
+        ];
+        let minimized = minimize_subnets(minimize_us);
+        assert_eq!(2, minimized.len());
+        assert_eq!(parse_ipv4netm("128.0.0.130", "255.0.0.254"), minimized[0]);
+        assert_eq!(parse_ipv4netm("128.0.0.132", "255.0.0.254"), minimized[1]);
+    }
+}
