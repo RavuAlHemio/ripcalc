@@ -160,10 +160,10 @@ pub fn parse_netspec(spec: &str) -> Result<NetworkSpec, ParseNetspecError> {
             .map_err(|e| ParseNetspecError::Address(e))?;
         let mut cidr: usize = mask_str.parse()
             .map_err(|e| ParseNetspecError::CidrParse(e))?;
+        if cidr > 32 {
+            return Err(ParseNetspecError::CidrRange(cidr, 32));
+        }
         if is_wildcard {
-            if cidr > 32 {
-                return Err(ParseNetspecError::CidrRange(cidr, 32));
-            }
             cidr = 32 - cidr;
         }
 
@@ -193,10 +193,10 @@ pub fn parse_netspec(spec: &str) -> Result<NetworkSpec, ParseNetspecError> {
             .map_err(|e| ParseNetspecError::Address(e))?;
         let mut cidr: usize = mask_str.parse()
             .map_err(|e| ParseNetspecError::CidrParse(e))?;
+        if cidr > 128 {
+            return Err(ParseNetspecError::CidrRange(cidr, 128));
+        }
         if is_wildcard {
-            if cidr > 128 {
-                return Err(ParseNetspecError::CidrRange(cidr, 128));
-            }
             cidr = 128 - cidr;
         }
 
