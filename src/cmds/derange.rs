@@ -80,3 +80,92 @@ pub fn range_to_subnets<A: IpAddress>(
 
     ret
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::addr::{Ipv4Address, Ipv6Address};
+    use crate::net::IpNetwork;
+
+    fn parse_ipv4(s: &str) -> Ipv4Address { s.parse().unwrap() }
+    fn parse_ipv6(s: &str) -> Ipv6Address { s.parse().unwrap() }
+    fn parse_ipv4net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv4Address> {
+        IpNetwork::new_with_prefix(addr_str.parse().unwrap(), cidr)
+    }
+    fn parse_ipv6net(addr_str: &str, cidr: usize) -> IpNetwork<Ipv6Address> {
+        IpNetwork::new_with_prefix(addr_str.parse().unwrap(), cidr)
+    }
+
+    #[test]
+    fn test_derange_single_subnet() {
+        let end_one = parse_ipv4("192.0.2.0");
+        let end_two = parse_ipv4("192.0.2.255");
+        let subnet = range_to_subnets(end_one, end_two);
+        assert_eq!(1, subnet.len());
+        assert_eq!(parse_ipv4net("192.0.2.0", 24), subnet[0]);
+
+        let end_one = parse_ipv6("2001:db8::");
+        let end_two = parse_ipv6("2001:db8::ffff:ffff:ffff:ffff");
+        let subnet = range_to_subnets(end_one, end_two);
+        assert_eq!(1, subnet.len());
+        assert_eq!(parse_ipv6net("2001:db8::", 64), subnet[0]);
+    }
+
+    #[test]
+    fn test_derange_multiple_subnets() {
+        let end_one = parse_ipv4("192.0.2.1");
+        let end_two = parse_ipv4("192.0.2.254");
+        let subnet = range_to_subnets(end_one, end_two);
+        assert_eq!(14, subnet.len());
+        assert_eq!(parse_ipv4net("192.0.2.1", 32), subnet[0]);
+        assert_eq!(parse_ipv4net("192.0.2.2", 31), subnet[1]);
+        assert_eq!(parse_ipv4net("192.0.2.4", 30), subnet[2]);
+        assert_eq!(parse_ipv4net("192.0.2.8", 29), subnet[3]);
+        assert_eq!(parse_ipv4net("192.0.2.16", 28), subnet[4]);
+        assert_eq!(parse_ipv4net("192.0.2.32", 27), subnet[5]);
+        assert_eq!(parse_ipv4net("192.0.2.64", 26), subnet[6]);
+        assert_eq!(parse_ipv4net("192.0.2.128", 26), subnet[7]);
+        assert_eq!(parse_ipv4net("192.0.2.192", 27), subnet[8]);
+        assert_eq!(parse_ipv4net("192.0.2.224", 28), subnet[9]);
+        assert_eq!(parse_ipv4net("192.0.2.240", 29), subnet[10]);
+        assert_eq!(parse_ipv4net("192.0.2.248", 30), subnet[11]);
+        assert_eq!(parse_ipv4net("192.0.2.252", 31), subnet[12]);
+        assert_eq!(parse_ipv4net("192.0.2.254", 32), subnet[13]);
+
+        let end_one = parse_ipv6("2001:db8::1");
+        let end_two = parse_ipv6("2001:db8::fffe");
+        let subnet = range_to_subnets(end_one, end_two);
+        assert_eq!(30, subnet.len());
+        assert_eq!(parse_ipv6net("2001:db8::1", 128), subnet[0]);
+        assert_eq!(parse_ipv6net("2001:db8::2", 127), subnet[1]);
+        assert_eq!(parse_ipv6net("2001:db8::4", 126), subnet[2]);
+        assert_eq!(parse_ipv6net("2001:db8::8", 125), subnet[3]);
+        assert_eq!(parse_ipv6net("2001:db8::10", 124), subnet[4]);
+        assert_eq!(parse_ipv6net("2001:db8::20", 123), subnet[5]);
+        assert_eq!(parse_ipv6net("2001:db8::40", 122), subnet[6]);
+        assert_eq!(parse_ipv6net("2001:db8::80", 121), subnet[7]);
+        assert_eq!(parse_ipv6net("2001:db8::100", 120), subnet[8]);
+        assert_eq!(parse_ipv6net("2001:db8::200", 119), subnet[9]);
+        assert_eq!(parse_ipv6net("2001:db8::400", 118), subnet[10]);
+        assert_eq!(parse_ipv6net("2001:db8::800", 117), subnet[11]);
+        assert_eq!(parse_ipv6net("2001:db8::1000", 116), subnet[12]);
+        assert_eq!(parse_ipv6net("2001:db8::2000", 115), subnet[13]);
+        assert_eq!(parse_ipv6net("2001:db8::4000", 114), subnet[14]);
+        assert_eq!(parse_ipv6net("2001:db8::8000", 114), subnet[15]);
+        assert_eq!(parse_ipv6net("2001:db8::c000", 115), subnet[16]);
+        assert_eq!(parse_ipv6net("2001:db8::e000", 116), subnet[17]);
+        assert_eq!(parse_ipv6net("2001:db8::f000", 117), subnet[18]);
+        assert_eq!(parse_ipv6net("2001:db8::f800", 118), subnet[19]);
+        assert_eq!(parse_ipv6net("2001:db8::fc00", 119), subnet[20]);
+        assert_eq!(parse_ipv6net("2001:db8::fe00", 120), subnet[21]);
+        assert_eq!(parse_ipv6net("2001:db8::ff00", 121), subnet[22]);
+        assert_eq!(parse_ipv6net("2001:db8::ff80", 122), subnet[23]);
+        assert_eq!(parse_ipv6net("2001:db8::ffc0", 123), subnet[24]);
+        assert_eq!(parse_ipv6net("2001:db8::ffe0", 124), subnet[25]);
+        assert_eq!(parse_ipv6net("2001:db8::fff0", 125), subnet[26]);
+        assert_eq!(parse_ipv6net("2001:db8::fff8", 126), subnet[27]);
+        assert_eq!(parse_ipv6net("2001:db8::fffc", 127), subnet[28]);
+        assert_eq!(parse_ipv6net("2001:db8::fffe", 128), subnet[29]);
+    }
+}
