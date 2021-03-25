@@ -275,7 +275,13 @@ impl Ipv6Address {
 
     fn sub_internal(addrtop64: u64, addrbot64: u64, offtop64: u64, offbot64: u64) -> Option<Ipv6Address> {
         let bot_diff = addrbot64.wrapping_sub(offbot64);
-        let is_borrow = bot_diff > addrbot64 || bot_diff > offbot64;
+        let is_borrow =
+            addrtop64 < offtop64
+            || (
+                addrtop64 == offtop64
+                && addrbot64 < offbot64
+            )
+        ;
 
         let mut top_diff = addrtop64.checked_sub(offtop64)?;
         if is_borrow {
