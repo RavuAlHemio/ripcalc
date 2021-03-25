@@ -223,3 +223,280 @@ impl<A: IpAddress> fmt::Display for IpNetwork<A> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+    #[cfg(feature = "num-bigint")]
+    use num_bigint::{BigInt, BigUint};
+    use crate::addr::{IpAddressParseError, Ipv4Address, Ipv6Address};
+
+    fn parse_addr<A: FromStr<Err = IpAddressParseError> + IpAddress>(s: &str) -> A { s.parse().unwrap() }
+    fn parse_ipv4(s: &str) -> Ipv4Address { parse_addr(s) }
+    fn parse_ipv6(s: &str) -> Ipv6Address { parse_addr(s) }
+    fn parse_bigint(s: &str) -> BigInt { s.parse().unwrap() }
+    fn parse_biguint(s: &str) -> BigUint { s.parse().unwrap() }
+
+    #[test]
+    fn test_ipv4_new_with_mask() {
+        // CIDR mask
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
+            parse_addr("127.0.0.1"),
+            parse_addr("255.0.0.0"),
+        );
+        assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.0.0.0"), net.subnet_mask());
+        assert_eq!(Some(8), net.cidr_prefix());
+        assert_eq!(parse_ipv4("0.255.255.255"), net.cisco_wildcard());
+        assert_eq!(Some(parse_ipv4("127.0.0.1")), net.first_host_addr());
+        assert_eq!(Some(parse_ipv4("127.255.255.255")), net.broadcast_addr());
+        assert_eq!(Some(parse_ipv4("127.255.255.254")), net.last_host_addr());
+        assert_eq!(Some(parse_ipv4("128.0.0.0")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.first_host_addr().unwrap()));
+        assert!(net.contains(&parse_ipv4("127.31.41.59")));
+        assert!(net.contains(&net.last_host_addr().unwrap()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(16777216u32), net.address_count());
+            assert_eq!(BigInt::from(16777214), net.host_count());
+        }
+
+        // mixed mask
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
+            parse_addr("127.0.0.1"),
+            parse_addr("255.0.255.0"),
+        );
+        assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.0.255.0"), net.subnet_mask());
+        assert_eq!(None, net.cidr_prefix());
+        assert_eq!(parse_ipv4("0.255.0.255"), net.cisco_wildcard());
+        assert_eq!(Some(parse_ipv4("127.0.0.1")), net.first_host_addr());
+        assert_eq!(Some(parse_ipv4("127.255.0.255")), net.broadcast_addr());
+        assert_eq!(Some(parse_ipv4("127.255.0.254")), net.last_host_addr());
+        assert_eq!(Some(parse_ipv4("127.0.1.0")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.first_host_addr().unwrap()));
+        assert!(net.contains(&parse_ipv4("127.31.0.59")));
+        assert!(net.contains(&net.last_host_addr().unwrap()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(65536u32), net.address_count());
+            assert_eq!(BigInt::from(65534), net.host_count());
+        }
+
+        // full mask
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
+            parse_addr("127.0.0.1"),
+            parse_addr("255.255.255.255"),
+        );
+        assert_eq!(parse_ipv4("127.0.0.1"), net.base_addr());
+        assert_eq!(parse_ipv4("255.255.255.255"), net.subnet_mask());
+        assert_eq!(Some(32), net.cidr_prefix());
+        assert_eq!(parse_ipv4("0.0.0.0"), net.cisco_wildcard());
+        assert_eq!(None, net.first_host_addr());
+        assert_eq!(None, net.broadcast_addr());
+        assert_eq!(None, net.last_host_addr());
+        assert_eq!(Some(parse_ipv4("127.0.0.2")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(!net.contains(&parse_ipv4("127.0.0.0")));
+        assert!(!net.contains(&parse_ipv4("127.0.0.2")));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(1u32), net.address_count());
+            assert_eq!(BigInt::from(-1), net.host_count());
+        }
+
+        // point-to-point mask
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
+            parse_addr("127.0.0.1"),
+            parse_addr("255.255.255.254"),
+        );
+        assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.255.255.254"), net.subnet_mask());
+        assert_eq!(Some(31), net.cidr_prefix());
+        assert_eq!(parse_ipv4("0.0.0.1"), net.cisco_wildcard());
+        assert_eq!(None, net.first_host_addr());
+        assert_eq!(Some(parse_ipv4("127.0.0.1")), net.broadcast_addr());
+        assert_eq!(None, net.last_host_addr());
+        assert_eq!(Some(parse_ipv4("127.0.0.2")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(2u32), net.address_count());
+            assert_eq!(BigInt::from(0), net.host_count());
+        }
+
+        // full-space subnet
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_mask(
+            parse_addr("0.0.0.0"),
+            parse_addr("0.0.0.0"),
+        );
+        assert_eq!(parse_ipv4("0.0.0.0"), net.base_addr());
+        assert_eq!(parse_ipv4("0.0.0.0"), net.subnet_mask());
+        assert_eq!(Some(0), net.cidr_prefix());
+        assert_eq!(parse_ipv4("255.255.255.255"), net.cisco_wildcard());
+        assert_eq!(Some(parse_ipv4("0.0.0.1")), net.first_host_addr());
+        assert_eq!(Some(parse_ipv4("255.255.255.255")), net.broadcast_addr());
+        assert_eq!(Some(parse_ipv4("255.255.255.254")), net.last_host_addr());
+        assert_eq!(None, net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.first_host_addr().unwrap()));
+        assert!(net.contains(&parse_ipv4("31.41.59.26")));
+        assert!(net.contains(&net.last_host_addr().unwrap()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(4294967296u64), net.address_count());
+            assert_eq!(BigInt::from(4294967294u32), net.host_count());
+        }
+    }
+
+    #[test]
+    fn test_ipv6_new_with_mask() {
+        // CIDR mask
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
+            parse_addr("fe80::1"),
+            parse_addr("ffc0::"),
+        );
+        assert_eq!(parse_ipv6("fe80::"), net.base_addr());
+        assert_eq!(parse_ipv6("ffc0::"), net.subnet_mask());
+        assert_eq!(Some(10), net.cidr_prefix());
+        assert_eq!(parse_ipv6("3f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"), net.cisco_wildcard());
+        assert_eq!(Some(parse_ipv6("fe80::1")), net.first_host_addr());
+        assert_eq!(Some(parse_ipv6("febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff")), net.broadcast_addr());
+        assert_eq!(Some(parse_ipv6("febf:ffff:ffff:ffff:ffff:ffff:ffff:fffe")), net.last_host_addr());
+        assert_eq!(Some(parse_ipv6("fec0::")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.first_host_addr().unwrap()));
+        assert!(net.contains(&parse_ipv6("feab:1234:5678:1234:5678:1234:5678:1234")));
+        assert!(net.contains(&net.last_host_addr().unwrap()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(parse_biguint("332306998946228968225951765070086144"), net.address_count());
+            assert_eq!(parse_bigint("332306998946228968225951765070086142"), net.host_count());
+        }
+
+        // mixed mask
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
+            parse_addr("1234:1234:1234:1234:1234:1234:1234:1234"),
+            parse_addr("ffff:0000:ffff:0000:0000:ffff:0000:ffff"),
+        );
+        assert_eq!(parse_ipv6("1234:0000:1234:0000:0000:1234:0000:1234"), net.base_addr());
+        assert_eq!(parse_ipv6("ffff:0000:ffff:0000:0000:ffff:0000:ffff"), net.subnet_mask());
+        assert_eq!(None, net.cidr_prefix());
+        assert_eq!(parse_ipv6("0000:ffff:0000:ffff:ffff:0000:ffff:0000"), net.cisco_wildcard());
+        assert_eq!(Some(parse_ipv6("1234:0000:1234:0000:0000:1234:0001:1234")), net.first_host_addr());
+        assert_eq!(Some(parse_ipv6("1234:ffff:1234:ffff:ffff:1234:ffff:1234")), net.broadcast_addr());
+        assert_eq!(Some(parse_ipv6("1234:ffff:1234:ffff:ffff:1234:fffe:1234")), net.last_host_addr());
+        assert_eq!(Some(parse_ipv6("1234:0000:1234:0000:0000:1234:0000:1235")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.first_host_addr().unwrap()));
+        assert!(net.contains(&parse_ipv6("1234:3141:1234:5926:5358:1234:9793:1234")));
+        assert!(net.contains(&net.last_host_addr().unwrap()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(parse_biguint("18446744073709551616"), net.address_count());
+            assert_eq!(parse_bigint("18446744073709551614"), net.host_count());
+        }
+
+        // full mask
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
+            parse_addr("::1"),
+            parse_addr("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+        );
+        assert_eq!(parse_ipv6("::1"), net.base_addr());
+        assert_eq!(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"), net.subnet_mask());
+        assert_eq!(Some(128), net.cidr_prefix());
+        assert_eq!(parse_ipv6("::"), net.cisco_wildcard());
+        assert_eq!(None, net.first_host_addr());
+        assert_eq!(None, net.broadcast_addr());
+        assert_eq!(None, net.last_host_addr());
+        assert_eq!(Some(parse_ipv6("::2")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(1u32), net.address_count());
+            assert_eq!(BigInt::from(-1), net.host_count());
+        }
+
+        // point-to-point mask
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
+            parse_addr("fe80::3"),
+            parse_addr("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"),
+        );
+        assert_eq!(parse_ipv6("fe80::2"), net.base_addr());
+        assert_eq!(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe"), net.subnet_mask());
+        assert_eq!(Some(127), net.cidr_prefix());
+        assert_eq!(parse_ipv6("::1"), net.cisco_wildcard());
+        assert_eq!(None, net.first_host_addr());
+        assert_eq!(Some(parse_ipv6("fe80::3")), net.broadcast_addr());
+        assert_eq!(None, net.last_host_addr());
+        assert_eq!(Some(parse_ipv6("fe80::4")), net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        assert!(!net.contains(&net.next_subnet_base_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(BigUint::from(2u32), net.address_count());
+            assert_eq!(BigInt::from(0), net.host_count());
+        }
+
+        // full-space subnet
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_mask(
+            parse_addr("::"),
+            parse_addr("::"),
+        );
+        assert_eq!(parse_ipv6("::"), net.base_addr());
+        assert_eq!(parse_ipv6("::"), net.subnet_mask());
+        assert_eq!(Some(0), net.cidr_prefix());
+        assert_eq!(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"), net.cisco_wildcard());
+        assert_eq!(Some(parse_ipv6("::1")), net.first_host_addr());
+        assert_eq!(Some(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")), net.broadcast_addr());
+        assert_eq!(Some(parse_ipv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")), net.last_host_addr());
+        assert_eq!(None, net.next_subnet_base_addr());
+        assert!(net.contains(&net.base_addr()));
+        assert!(net.contains(&net.first_host_addr().unwrap()));
+        assert!(net.contains(&parse_ipv6("1234:3141:1234:5926:5358:1234:9793:1234")));
+        assert!(net.contains(&net.last_host_addr().unwrap()));
+        assert!(net.contains(&net.broadcast_addr().unwrap()));
+        if cfg!(feature = "num-bigint") {
+            assert_eq!(parse_biguint("340282366920938463463374607431768211456"), net.address_count());
+            assert_eq!(parse_bigint("340282366920938463463374607431768211454"), net.host_count());
+        }
+    }
+
+    #[test]
+    fn test_ipv4_new_with_prefix() {
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
+            parse_addr("127.0.0.1"),
+            8,
+        );
+        assert_eq!(parse_ipv4("127.0.0.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.0.0.0"), net.subnet_mask());
+        assert_eq!(Some(8), net.cidr_prefix);
+
+        let net: IpNetwork<Ipv4Address> = IpNetwork::new_with_prefix(
+            parse_addr("1.2.3.4"),
+            24,
+        );
+        assert_eq!(parse_ipv4("1.2.3.0"), net.base_addr());
+        assert_eq!(parse_ipv4("255.255.255.0"), net.subnet_mask());
+        assert_eq!(Some(24), net.cidr_prefix);
+    }
+
+    #[test]
+    fn test_ipv6_new_with_prefix() {
+        let net: IpNetwork<Ipv6Address> = IpNetwork::new_with_prefix(
+            parse_addr("feba::"),
+            10,
+        );
+        assert_eq!(parse_addr::<Ipv6Address>("fe80::"), net.base_addr());
+        assert_eq!(parse_addr::<Ipv6Address>("ffc0::"), net.subnet_mask());
+        assert_eq!(Some(10), net.cidr_prefix);
+    }
+}
