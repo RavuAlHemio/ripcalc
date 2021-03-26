@@ -20,14 +20,30 @@ const ADDR_SEP_COLOR: Color = Color::White;
 
 
 pub fn show_net<S: AsRef<str> + Debug>(args: &Vec<S>) -> i32 {
-    match parse_netspec(args[1].as_ref()) {
-        Ok(NetworkSpec::Ipv4(a, n)) => output_ipv4_network(n, Some(a)),
-        Ok(NetworkSpec::Ipv6(a, n)) => output_ipv6_network(n, Some(a)),
-        Err(e) => {
-            eprintln!("{}", e);
-            return 1;
-        },
-    };
+    let mut specs = Vec::new();
+    for arg in &args[1..] {
+        match parse_netspec(arg.as_ref()) {
+            Ok(spec) => specs.push(spec),
+            Err(e) => {
+                eprintln!("{}", e);
+                return 1;
+            },
+        };
+    }
+
+    let mut is_first = true;
+    for spec in &specs {
+        if !is_first {
+            println!();
+        }
+        is_first = false;
+
+        match spec {
+            NetworkSpec::Ipv4(a, n) => output_ipv4_network(*n, Some(*a)),
+            NetworkSpec::Ipv6(a, n) => output_ipv6_network(*n, Some(*a)),
+        };
+    }
+
     0
 }
 
