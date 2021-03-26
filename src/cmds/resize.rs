@@ -154,3 +154,137 @@ pub fn resize_network<A: IpAddress>(initial_net: IpNetwork<A>, new_subnet_mask: 
         (nets, Ordering::Greater)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::net::test::{
+        parse_ipv4, parse_ipv4net, parse_ipv4netm, parse_ipv6, parse_ipv6net, parse_ipv6netm,
+    };
+
+    #[test]
+    fn test_resize_ipv4() {
+        // 1:1
+        let (resized, ordure) = resize_network(
+            parse_ipv4net("192.0.2.0", 24),
+            parse_ipv4("255.255.255.0"),
+        );
+        assert_eq!(Ordering::Equal, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv4net("192.0.2.0", 24), resized[0]);
+
+        // shifting bits
+        let (resized, ordure) = resize_network(
+            parse_ipv4net("192.0.2.0", 24),
+            parse_ipv4("255.0.255.255"),
+        );
+        assert_eq!(Ordering::Equal, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv4netm("192.0.0.2", "255.0.255.255"), resized[0]);
+
+        // subnets
+        let (resized, ordure) = resize_network(
+            parse_ipv4net("192.0.2.0", 24),
+            parse_ipv4("255.255.255.192"),
+        );
+        assert_eq!(Ordering::Greater, ordure);
+        assert_eq!(4, resized.len());
+        assert_eq!(parse_ipv4net("192.0.2.0", 26), resized[0]);
+        assert_eq!(parse_ipv4net("192.0.2.64", 26), resized[1]);
+        assert_eq!(parse_ipv4net("192.0.2.128", 26), resized[2]);
+        assert_eq!(parse_ipv4net("192.0.2.192", 26), resized[3]);
+
+        // subnets shifting bits
+        let (resized, ordure) = resize_network(
+            parse_ipv4net("192.0.2.0", 24),
+            parse_ipv4("255.255.192.255"),
+        );
+        assert_eq!(Ordering::Greater, ordure);
+        assert_eq!(4, resized.len());
+        assert_eq!(parse_ipv4netm("192.0.0.8", "255.255.192.255"), resized[0]);
+        assert_eq!(parse_ipv4netm("192.0.0.9", "255.255.192.255"), resized[1]);
+        assert_eq!(parse_ipv4netm("192.0.0.10", "255.255.192.255"), resized[2]);
+        assert_eq!(parse_ipv4netm("192.0.0.11", "255.255.192.255"), resized[3]);
+
+        // supernet
+        let (resized, ordure) = resize_network(
+            parse_ipv4net("192.0.2.0", 24),
+            parse_ipv4("255.255.0.0"),
+        );
+        assert_eq!(Ordering::Less, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv4net("192.0.0.0", 16), resized[0]);
+
+        // supernet shifting bits
+        let (resized, ordure) = resize_network(
+            parse_ipv4net("192.0.2.0", 24),
+            parse_ipv4("255.0.255.0"),
+        );
+        assert_eq!(Ordering::Less, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv4netm("192.0.0.0", "255.0.255.0"), resized[0]);
+    }
+
+    #[test]
+    fn test_resize_ipv6() {
+        // 1:1
+        let (resized, ordure) = resize_network(
+            parse_ipv6net("2001:db8::", 64),
+            parse_ipv6("ffff:ffff:ffff:ffff::"),
+        );
+        assert_eq!(Ordering::Equal, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv6net("2001:db8::", 64), resized[0]);
+
+        // shifting bits
+        let (resized, ordure) = resize_network(
+            parse_ipv6net("2001:db8::", 64),
+            parse_ipv6("ffff:0:ffff:ffff:ffff::"),
+        );
+        assert_eq!(Ordering::Equal, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv6netm("2001:0:db8::", "ffff:0:ffff:ffff:ffff::"), resized[0]);
+
+        // subnets
+        let (resized, ordure) = resize_network(
+            parse_ipv6net("2001:db8::", 64),
+            parse_ipv6("ffff:ffff:ffff:ffff:c000::"),
+        );
+        assert_eq!(Ordering::Greater, ordure);
+        assert_eq!(4, resized.len());
+        assert_eq!(parse_ipv6net("2001:db8::", 66), resized[0]);
+        assert_eq!(parse_ipv6net("2001:db8:0:0:4000::", 66), resized[1]);
+        assert_eq!(parse_ipv6net("2001:db8:0:0:8000::", 66), resized[2]);
+        assert_eq!(parse_ipv6net("2001:db8:0:0:c000::", 66), resized[3]);
+
+        // subnets shifting bits
+        let (resized, ordure) = resize_network(
+            parse_ipv6net("2001:db8::", 64),
+            parse_ipv6("ffff:ffff:ffff:ffff:0:c000::"),
+        );
+        assert_eq!(Ordering::Greater, ordure);
+        assert_eq!(4, resized.len());
+        assert_eq!(parse_ipv6netm("2001:db8::", "ffff:ffff:ffff:ffff:0:c000::"), resized[0]);
+        assert_eq!(parse_ipv6netm("2001:db8:0:0:0:4000::", "ffff:ffff:ffff:ffff:0:c000::"), resized[1]);
+        assert_eq!(parse_ipv6netm("2001:db8:0:0:0:8000::", "ffff:ffff:ffff:ffff:0:c000::"), resized[2]);
+        assert_eq!(parse_ipv6netm("2001:db8:0:0:0:c000::", "ffff:ffff:ffff:ffff:0:c000::"), resized[3]);
+
+        // supernet
+        let (resized, ordure) = resize_network(
+            parse_ipv6net("2001:db8:1234:1234::", 64),
+            parse_ipv6("ffff:ffff:ffff::"),
+        );
+        assert_eq!(Ordering::Less, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv6net("2001:db8:1234::", 48), resized[0]);
+
+        // supernet shifting bits
+        let (resized, ordure) = resize_network(
+            parse_ipv6net("2001:db8:1234:1234::", 64),
+            parse_ipv6("ffff:ffff:0:ffff::"),
+        );
+        assert_eq!(Ordering::Less, ordure);
+        assert_eq!(1, resized.len());
+        assert_eq!(parse_ipv6netm("2001:db8:0:1234::", "ffff:ffff:0:ffff::"), resized[0]);
+    }
+}
