@@ -145,7 +145,8 @@ pub fn resize_network<A: IpAddress>(initial_net: IpNetwork<A>, new_subnet_mask: 
             nets.push(new_net);
 
             if let Some(nsba) = new_net.next_subnet_base_addr() {
-                current_unraveled_base_addr = nsba;
+                let unraveled_nsba = unravel_address(nsba, new_net.subnet_mask());
+                current_unraveled_base_addr = unraveled_nsba;
             } else {
                 break;
             }
