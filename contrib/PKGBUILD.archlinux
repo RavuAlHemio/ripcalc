@@ -1,0 +1,34 @@
+# Maintainer: Ondřej Hošek <ondra.hosek@gmail.com>
+
+pkgname=ripcalc
+pkgver=r21.483a7af
+pkgrel=1
+pkgdesc="IP subnet calculator in Rust"
+arch=('x86_64' 'i686')
+url="https://gitlab.tuwien.ac.at/ondrej.hosek/ripcalc"
+license=('custom:CC0')
+depends=('gcc-libs')
+makedepends=('cargo' 'git')
+source=("git+https://gitlab.tuwien.ac.at/ondrej.hosek/ripcalc.git")
+sha512sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$pkgname"
+  cargo build --release
+}
+
+check() {
+  cd "$pkgname"
+  cargo test --release
+}
+
+package() {
+  cd "$pkgname"
+  install -Dm755 target/release/ripcalc "$pkgdir/usr/bin/ripcalc"
+  install -Dm644 COPYING.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
