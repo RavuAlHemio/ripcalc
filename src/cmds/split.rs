@@ -71,7 +71,9 @@ fn output_split<A: IpAddress, ON: Fn(IpNetwork<A>, Option<A>)>(subnet: IpNetwork
         .map(|sn| sn.last_addr_of_subnet())
         .max()
         .expect("no subnets returned");
-    if let Some(next_unused_address) = max_used_address.add_offset(1) {
+    if !subnet.contains(&max_used_address) {
+        println!("Network is too small");
+    } else if let Some(next_unused_address) = max_used_address.add_offset(1) {
         println!("Unused networks:");
         let last_address = subnet.last_addr_of_subnet();
         let unused_subnets = range_to_subnets(next_unused_address, last_address);
@@ -131,4 +133,144 @@ pub fn split_subnet<A: IpAddress>(subnet: IpNetwork<A>, host_counts: Vec<BigInt>
         .collect();
 
     Some(ret)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::net::test::{
+        parse_ipv4net, parse_ipv6net, parse_bigint,
+    };
+
+    #[test]
+    fn test_split_ipv4() {
+        // single smaller net
+        let nets = split_subnet(
+            parse_ipv4net("192.0.2.0", 24),
+            vec![10.into()],
+        )
+            .unwrap();
+        assert_eq!(1, nets.len());
+        assert_eq!(parse_ipv4net("192.0.2.0", 28), nets[0]);
+
+        // multiple smaller nets of the same size, fitting
+        let nets = split_subnet(
+            parse_ipv4net("192.0.2.0", 24),
+            vec![60.into(), 60.into(), 60.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(4, nets.len());
+        assert_eq!(parse_ipv4net("192.0.2.0", 26), nets[0]);
+        assert_eq!(parse_ipv4net("192.0.2.64", 26), nets[1]);
+        assert_eq!(parse_ipv4net("192.0.2.128", 26), nets[2]);
+        assert_eq!(parse_ipv4net("192.0.2.192", 26), nets[3]);
+
+        // multiple smaller nets of the same size, not fitting
+        let nets = split_subnet(
+            parse_ipv4net("192.0.2.0", 24),
+            vec![60.into(), 60.into(), 60.into(), 60.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(5, nets.len());
+        assert_eq!(parse_ipv4net("192.0.2.0", 26), nets[0]);
+        assert_eq!(parse_ipv4net("192.0.2.64", 26), nets[1]);
+        assert_eq!(parse_ipv4net("192.0.2.128", 26), nets[2]);
+        assert_eq!(parse_ipv4net("192.0.2.192", 26), nets[3]);
+        assert_eq!(parse_ipv4net("192.0.3.0", 26), nets[4]);
+
+        // multiple smaller nets of different sizes
+        let nets = split_subnet(
+            parse_ipv4net("192.0.2.0", 24),
+            vec![60.into(), 100.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(3, nets.len());
+        assert_eq!(parse_ipv4net("192.0.2.128", 26), nets[0]);
+        assert_eq!(parse_ipv4net("192.0.2.0", 25), nets[1]);
+        assert_eq!(parse_ipv4net("192.0.2.192", 26), nets[2]);
+
+        // too many hosts
+        let nets = split_subnet(
+            parse_ipv4net("192.0.2.0", 24),
+            vec![60.into(), 100.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(3, nets.len());
+        assert_eq!(parse_ipv4net("192.0.2.128", 26), nets[0]);
+        assert_eq!(parse_ipv4net("192.0.2.0", 25), nets[1]);
+        assert_eq!(parse_ipv4net("192.0.2.192", 26), nets[2]);
+
+        // too many hosts for address space
+        let none_subnet = split_subnet(
+            parse_ipv4net("192.0.2.0", 24),
+            vec![8589934592u64.into()],
+        );
+        assert!(none_subnet.is_none());
+    }
+
+    #[test]
+    fn test_resize_ipv6() {
+        // single smaller net
+        let nets = split_subnet(
+            parse_ipv6net("2001:db8::", 64),
+            vec![10.into()],
+        )
+            .unwrap();
+        assert_eq!(1, nets.len());
+        assert_eq!(parse_ipv6net("2001:db8::", 124), nets[0]);
+
+        // multiple smaller nets of the same size, fitting
+        let nets = split_subnet(
+            parse_ipv6net("2001:db8::", 64),
+            vec![60.into(), 60.into(), 60.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(4, nets.len());
+        assert_eq!(parse_ipv6net("2001:db8::", 122), nets[0]);
+        assert_eq!(parse_ipv6net("2001:db8::40", 122), nets[1]);
+        assert_eq!(parse_ipv6net("2001:db8::80", 122), nets[2]);
+        assert_eq!(parse_ipv6net("2001:db8::c0", 122), nets[3]);
+
+        // multiple smaller nets of the same size, not fitting
+        let nets = split_subnet(
+            parse_ipv6net("2001:db8::", 121),
+            vec![60.into(), 60.into(), 60.into(), 60.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(5, nets.len());
+        assert_eq!(parse_ipv6net("2001:db8::", 122), nets[0]);
+        assert_eq!(parse_ipv6net("2001:db8::40", 122), nets[1]);
+        assert_eq!(parse_ipv6net("2001:db8::80", 122), nets[2]);
+        assert_eq!(parse_ipv6net("2001:db8::c0", 122), nets[3]);
+        assert_eq!(parse_ipv6net("2001:db8::100", 122), nets[4]);
+
+        // multiple smaller nets of different sizes
+        let nets = split_subnet(
+            parse_ipv6net("2001:db8::", 64),
+            vec![60.into(), 100.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(3, nets.len());
+        assert_eq!(parse_ipv6net("2001:db8::80", 122), nets[0]);
+        assert_eq!(parse_ipv6net("2001:db8::", 121), nets[1]);
+        assert_eq!(parse_ipv6net("2001:db8::c0", 122), nets[2]);
+
+        // too many hosts
+        let nets = split_subnet(
+            parse_ipv6net("2001:db8::", 121),
+            vec![60.into(), 100.into(), 60.into()],
+        )
+            .unwrap();
+        assert_eq!(3, nets.len());
+        assert_eq!(parse_ipv6net("2001:db8::80", 122), nets[0]);
+        assert_eq!(parse_ipv6net("2001:db8::", 121), nets[1]);
+        assert_eq!(parse_ipv6net("2001:db8::c0", 122), nets[2]);
+
+        // too many hosts for address space
+        let none_subnet = split_subnet(
+            parse_ipv6net("2001:db8::", 64),
+            vec![parse_bigint("680564733841876926926749214863536422912")],
+        );
+        assert!(none_subnet.is_none());
+    }
 }
