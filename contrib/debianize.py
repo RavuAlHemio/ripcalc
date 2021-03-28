@@ -23,7 +23,10 @@ STRIP_TARGET_FILES = {
     "usr/bin/ripcalc",
 }
 ARCH_SRC_FILE = "target/release/ripcalc"
-DEPS = "libc6 (>= 2.14), libgcc1 (>= 1:3.0)"
+DEPS = []
+BIN_DEP_TARGET_FILES = {
+    "usr/bin/ripcalc",
+}
 AUTHOR = "Ond\u0159ej Ho\u0161ek <ondra.hosek@gmail.com>"
 AUTHOR_YEARS = "2021"
 SECTION = "net"
@@ -36,6 +39,7 @@ LONG_DESCR = """It calculates subnets."""
 
 # constants
 READELF_MACHINE_RE = re.compile("(?m)^\\s+Machine:\\s+(\\S.*)$")
+VERSION_LINE_RE = re.compile("^\\s+(?:0+|0x[0-9a-f]+):\\s+Name: ([A-Z]+)_([0-9.]+)\\s+Flags: .+\\s+Version: .+$")
 
 
 def run_cmd(cmd_args, work_dir=None):
@@ -94,6 +98,49 @@ def get_elf_machine(file_name):
             0x15: "ppc64el",
             0x16: "s390x",
         }[machine_num]
+
+
+def get_elf_versions(file_name, lib_to_ver):
+    elf_output = run_cmd(["readelf", "-V", file_name])
+    elf_lines = elf_output.strip().split("\n")
+
+    correct_section = False
+    for ln in elf_lines:
+        if not ln.startswith(" "):
+            # section header
+            correct_section = ln.startswith("Version needs section '.gnu.version_r' contains ")
+            continue
+
+        if not correct_section:
+            # skip this section fully
+            continue
+
+        # content line
+        m = VERSION_LINE_RE.match(ln)
+        if m is None:
+            continue
+
+        library = m.group(1)
+        ver_str = m.group(2)
+        ver = tuple(int(piece) for piece in ver_str.split("."))
+
+        exist_ver = lib_to_ver.get(library, None)
+        if exist_ver is None or exist_ver < ver:
+            lib_to_ver[library] = ver
+
+
+def libver_to_deps(lib_to_ver):
+    deb_mapping = {
+        "GLIBC": "libc6",
+        "GCC": "libgcc1",
+    }
+    return [
+        "{n} (>= {v})".format(
+            n=deb_mapping[lib],
+            v=".".join(str(v) for v in ver)
+        )
+        for (lib, ver) in lib_to_ver.items()
+    ]
 
 
 def fake_changelog(code_revision):
@@ -220,6 +267,15 @@ def collect_control(temp_dir, data_dir, generated_files, code_revision, deb_arch
     control_dir = os.path.join(temp_dir, "control")
     os.mkdir(control_dir)
 
+    # collect shared lib dependency info
+    lib_to_ver = {}
+    for target_rel_path in BIN_DEP_TARGET_FILES:
+        get_elf_versions(os.path.join(data_dir, target_rel_path), lib_to_ver)
+    deb_deps = libver_to_deps(lib_to_ver)
+
+    # add the static dependency info
+    deb_deps.extend(DEPS)
+
     # the control file
     long_descr_lines = LONG_DESCR.strip().split("\n")
     long_descr_lines_fmt = [
@@ -227,7 +283,7 @@ def collect_control(temp_dir, data_dir, generated_files, code_revision, deb_arch
         for ln in long_descr_lines
     ]
     long_descr_fmt = "\n".join(long_descr_lines_fmt)
-    control_file_contents = """
+    control_file_tpl = """
 Package: {pn}
 Source: {pn}
 Version: {cr}
@@ -241,13 +297,12 @@ Homepage: {hp}
 Description: {sd}
 {ldf}
 """
-    control_file_contents = control_file_contents.lstrip()
-    control_file_contents = control_file_contents.format(
+    control_file_contents = control_file_tpl.lstrip().format(
         pn=PACKAGE_NAME,
         cr=code_revision,
         da=deb_arch,
         tsk=total_size_kib,
-        d=DEPS,
+        d=", ".join(sorted(deb_deps)),
         au=AUTHOR,
         se=SECTION,
         pr=PRIORITY,
