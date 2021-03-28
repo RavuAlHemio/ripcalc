@@ -143,6 +143,12 @@ def libver_to_deps(lib_to_ver):
     ]
 
 
+def get_mail_date_time():
+    # does not work with older Python versions:
+    #return datetime.datetime.now().astimezone().strftime("%a, %d %b %Y %H:%M:%S %z")
+    return run_cmd(["date", "+%a, %d %b %Y %H:%M:%S %z"])
+
+
 def fake_changelog(code_revision):
     changelog_fmt = """
 {pn} ({cr}) unstable; urgency=medium
@@ -155,7 +161,7 @@ def fake_changelog(code_revision):
         pn=PACKAGE_NAME,
         cr=code_revision,
         au=AUTHOR,
-        dt=datetime.datetime.now().astimezone().strftime("%a, %d %b %Y %H:%M:%S %z"),
+        dt=get_mail_date_time(),
     )
     changelog_bytes = changelog_str.encode("utf-8")
     changelog_gz_bytes = gzip.compress(changelog_bytes, mtime=0)
