@@ -2,13 +2,30 @@ stages:
   - build
   - test
 
+.arch_before: &arch_before
+  before_script:
+    - "pacman -Syu --noconfirm"
+    - "pacman -S --needed --noconfirm cargo base-devel"
+
+.ubuntu_before: &ubuntu_before
+  before_script:
+    - "apt -y update"
+    - "export LANG=C.UTF-8"
+    - "export LC_ALL=C.UTF-8"
+    - "apt -y install curl build-essential"
+    - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+    - "source $HOME/.cargo/env"
+
+.ubuntu_build: &ubuntu_build
+  script:
+    - "cargo build"
+    - "cargo build --release"
+
 build-arch:
   stage: build
   image: archlinux:base
   needs: []
-  before_script:
-    - "pacman -Syu --noconfirm"
-    - "pacman -S --needed --noconfirm cargo base-devel"
+  <<: *arch_before
   script:
     - "cargo build"
     - "cargo build --release"
@@ -21,16 +38,8 @@ build-ubuntu-trusty:
   stage: build
   image: ubuntu:trusty
   needs: []
-  before_script:
-    - "apt -y update"
-    - "export LANG=C.UTF-8"
-    - "export LC_ALL=C.UTF-8"
-    - "apt -y install curl build-essential"
-    - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
-    - "source $HOME/.cargo/env"
-  script:
-    - "cargo build"
-    - "cargo build --release"
+  <<: *ubuntu_before
+  <<: *ubuntu_build
   artifacts:
     paths:
       - target/debug/ripcalc
@@ -40,16 +49,8 @@ build-ubuntu-focal:
   stage: build
   image: ubuntu:focal
   needs: []
-  before_script:
-    - "apt -y update"
-    - "export LANG=C.UTF-8"
-    - "export LC_ALL=C.UTF-8"
-    - "apt -y install curl build-essential"
-    - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
-    - "source $HOME/.cargo/env"
-  script:
-    - "cargo build"
-    - "cargo build --release"
+  <<: *ubuntu_before
+  <<: *ubuntu_build
   artifacts:
     paths:
       - target/debug/ripcalc
@@ -60,9 +61,6 @@ test:
   image: archlinux:base
   needs:
     - job: build-arch
-      artifacts: true
-  before_script:
-    - "pacman -Syu --noconfirm"
-    - "pacman -S --needed --noconfirm cargo base-devel"
+  <<: *arch_before
   script:
     - "cargo test"
