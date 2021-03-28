@@ -2,9 +2,9 @@
 #
 # Spits out a .deb file while avoiding all the Debian Project rigmarole.
 #
-import datetime
 import gzip
 import hashlib
+import io
 import os
 import re
 import shutil
@@ -149,6 +149,15 @@ def get_mail_date_time():
     return run_cmd(["date", "+%a, %d %b %Y %H:%M:%S %z"])
 
 
+def compress_gzip_without_timestamp(bytes_to_compress):
+    # older versions of Python do not have the mtime argument on gzip.compress()
+    gzip_buffer = io.BytesIO()
+    gzip_file = gzip.GzipFile(fileobj=gzip_buffer, mode="w", mtime=0)
+    gzip_file.write(bytes_to_compress)
+    gzip_file.close()
+    return gzip_buffer.getvalue()
+
+
 def fake_changelog(code_revision):
     changelog_fmt = """
 {pn} ({cr}) unstable; urgency=medium
@@ -164,7 +173,7 @@ def fake_changelog(code_revision):
         dt=get_mail_date_time(),
     )
     changelog_bytes = changelog_str.encode("utf-8")
-    changelog_gz_bytes = gzip.compress(changelog_bytes, mtime=0)
+    changelog_gz_bytes = compress_gzip_without_timestamp(changelog_bytes)
     return changelog_gz_bytes
 
 
