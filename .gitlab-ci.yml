@@ -6,33 +6,47 @@ stages:
   before_script:
     - "pacman -Syu --noconfirm"
     - "pacman -S --needed --noconfirm cargo base-devel"
+    - "useradd --comment='Build User' --home-dir=/var/lib/builduser --user-group --create-home --shell=/bin/bash builduser"
+    - "echo 'builduser ALL=(ALL) NOPASSWD: ALL' >>/etc/sudoers"
 
 .ubuntu_before: &ubuntu_before
   before_script:
     - "apt -y update"
     - "export LANG=C.UTF-8"
     - "export LC_ALL=C.UTF-8"
-    - "apt -y install curl build-essential"
+    - "apt -y install curl build-essential git python3"
     - "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
     - "source $HOME/.cargo/env"
+
+.arch_build: &arch_build
+  script:
+    - "cargo build"
+    - "cargo build --release"
+    - "mkdir -p /tmp/archbuild/src"
+    - "cp -R $CI_PROJECT_DIR /tmp/archbuild/src/$CI_PROJECT_NAME"
+    - "chown -R builduser /tmp/archbuild"
+    - "cd /tmp/archbuild"
+    - "sudo -H -u builduser cp src/$CI_PROJECT_NAME/contrib/PKGBUILD.archlinux PKGBUILD"
+    - "sudo -H -u builduser makepkg --noextract --syncdeps --needed --noconfirm"
+    - "cp $CI_PROJECT_NAME*.pkg.tar.* $CI_PROJECT_DIR"
 
 .ubuntu_build: &ubuntu_build
   script:
     - "cargo build"
     - "cargo build --release"
+    - "python3 contrib/debianize.py"
 
 build-arch:
   stage: build
   image: archlinux:base
   needs: []
   <<: *arch_before
-  script:
-    - "cargo build"
-    - "cargo build --release"
+  <<: *arch_build
   artifacts:
     paths:
       - target/debug/ripcalc
       - target/release/ripcalc
+      - "*.pkg.tar.*"
 
 build-ubuntu-trusty:
   stage: build
@@ -44,6 +58,7 @@ build-ubuntu-trusty:
     paths:
       - target/debug/ripcalc
       - target/release/ripcalc
+      - "ripcalc*.deb"
 
 build-ubuntu-focal:
   stage: build
@@ -55,6 +70,7 @@ build-ubuntu-focal:
     paths:
       - target/debug/ripcalc
       - target/release/ripcalc
+      - "ripcalc*.deb"
 
 test:
   stage: test
