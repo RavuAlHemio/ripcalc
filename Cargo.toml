@@ -2,13 +2,13 @@
 name = "ripcalc"
 version = "0.1.0"
 authors = ["Ondřej Hošek <ondra.hosek@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [features]
 default = ["console", "num-bigint"]
 
 [dependencies]
-console = { version = "0.14", optional = true }
+console = { version = "0.15", optional = true }
 num-bigint = { version = "0.4", optional = true }
-once_cell = { version = "1.8" }
-regex = { version = "1.5" }
+once_cell = { version = "1.17" }
+regex = { version = "1.8" }
