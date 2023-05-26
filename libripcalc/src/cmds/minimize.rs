@@ -1,25 +1,24 @@
 use std::collections::HashSet;
 
-use crate::usage;
 use crate::addr::IpAddress;
-use crate::cmds::{NetworkSpecs, parse_same_family_netspecs};
+use crate::cmds::{CommandResult, NetworkSpecs, parse_same_family_netspecs};
 use crate::net::IpNetwork;
+use crate::output::Output;
 
 
-pub fn minimize(args: &[String]) -> i32 {
+pub fn minimize<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --minimize IPADDRESS/SUBNET...
     if args.len() < 3 {
-        usage();
-        return 1;
+        return CommandResult::WrongUsage;
     }
 
     match parse_same_family_netspecs(&args[2..]) {
         Ok(NetworkSpecs::Nothing) => {
-            0
+            CommandResult::Ok
         },
         Ok(NetworkSpecs::MixedSpecs) => {
-            eprintln!("mixing IPv4 and IPv6 is not supported");
-            1
+            writeln!(stderr, "mixing IPv4 and IPv6 is not supported").unwrap();
+            CommandResult::Error(1)
         },
         Ok(NetworkSpecs::Ipv4(addrs_subnets)) => {
             let subnets = addrs_subnets.iter()
@@ -27,9 +26,9 @@ pub fn minimize(args: &[String]) -> i32 {
                 .collect();
             let minimized = minimize_subnets(subnets);
             for min_net in minimized {
-                println!("{}", min_net);
+                writeln!(stdout, "{}", min_net).unwrap();
             }
-            0
+            CommandResult::Ok
         },
         Ok(NetworkSpecs::Ipv6(addrs_subnets)) => {
             let subnets = addrs_subnets.iter()
@@ -37,13 +36,13 @@ pub fn minimize(args: &[String]) -> i32 {
                 .collect();
             let minimized = minimize_subnets(subnets);
             for min_net in minimized {
-                println!("{}", min_net);
+                writeln!(stdout, "{}", min_net).unwrap();
             }
-            0
+            CommandResult::Ok
         },
         Err(e) => {
-            eprintln!("parsing error: {}", e);
-            1
+            writeln!(stderr, "parsing error: {}", e).unwrap();
+            CommandResult::Error(1)
         },
     }
 }

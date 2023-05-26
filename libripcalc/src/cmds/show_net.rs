@@ -4,8 +4,8 @@ use std::fmt::Debug;
 use num_bigint::BigInt;
 
 use crate::bit_manip::bytes_to_binary;
-use crate::cmds::{NetworkSpec, parse_netspec};
-use crate::console::{Color, write_in_color};
+use crate::cmds::{CommandResult, NetworkSpec, parse_netspec};
+use crate::output::{Color, Output};
 use crate::addr::{IpAddress, Ipv4Address, Ipv6Address};
 use crate::net::IpNetwork;
 
@@ -19,14 +19,14 @@ const CLASS_BITS_COLOR: Color = Color::Magenta;
 const ADDR_SEP_COLOR: Color = Color::White;
 
 
-pub fn show_net<S: AsRef<str> + Debug>(args: &Vec<S>) -> i32 {
+pub fn show_net<S: AsRef<str> + Debug, O: Output, E: Output>(args: &Vec<S>, stdout: &mut O, stderr: &mut E) -> CommandResult {
     let mut specs = Vec::new();
     for arg in &args[1..] {
         match parse_netspec(arg.as_ref()) {
             Ok(spec) => specs.push(spec),
             Err(e) => {
-                eprintln!("{}", e);
-                return 1;
+                writeln!(stderr, "{}", e).unwrap();
+                return CommandResult::Error(1);
             },
         };
     }
@@ -34,52 +34,67 @@ pub fn show_net<S: AsRef<str> + Debug>(args: &Vec<S>) -> i32 {
     let mut is_first = true;
     for spec in &specs {
         if !is_first {
-            println!();
+            writeln!(stdout).unwrap();
         }
         is_first = false;
 
         match spec {
-            NetworkSpec::Ipv4(a, n) => output_ipv4_network(*n, Some(*a)),
-            NetworkSpec::Ipv6(a, n) => output_ipv6_network(*n, Some(*a)),
+            NetworkSpec::Ipv4(a, n) => output_ipv4_network(*n, Some(*a), stdout),
+            NetworkSpec::Ipv6(a, n) => output_ipv6_network(*n, Some(*a), stdout),
         };
     }
 
-    0
+    CommandResult::Ok
 }
 
-fn output_network<A: IpAddress, OBA: Fn(A, Option<A>, bool, Option<Color>), OC: Fn(&str, &str)>(
-    label_width: isize,
-    address_width: isize,
+fn output_network<
+    A: IpAddress,
+    OBA: Fn(A, Option<A>, bool, Option<Color>, &mut O),
+    OC: Fn(&str, &str, &mut O),
+    O: Output,
+>(
+    label_width: usize,
+    address_width: usize,
     output_binary_address: OBA,
     output_class: OC,
     net: IpNetwork<A>,
     addr: Option<A>,
+    stdout: &mut O,
 ) {
-    let output_initial_columns = |label: &str, address: &str| {
-        write_in_color(label, Some(LABEL_COLOR), label_width);
-        write_in_color(address, Some(IP_ADDRESS_COLOR), address_width);
+    let output_initial_columns = |label: &str, address: &str, stdout: &mut O| {
+        {
+            let mut label_color_writer = stdout.in_color(LABEL_COLOR);
+            write!(label_color_writer, "{0:1$}", label, label_width).unwrap();
+        }
+        {
+            let mut ip_color_writer = stdout.in_color(IP_ADDRESS_COLOR);
+            write!(ip_color_writer, "{0:1$}", address, address_width).unwrap();
+        }
     };
 
     if let Some(a) = addr {
-        output_initial_columns("Address:", &a.to_string());
-        output_binary_address(a, Some(net.subnet_mask()), false, None);
-        println!();
+        output_initial_columns("Address:", &a.to_string(), stdout);
+        output_binary_address(a, Some(net.subnet_mask()), false, None, stdout);
+        writeln!(stdout).unwrap();
 
         let netmask_addr_str = if let Some(pfx) = net.cidr_prefix() {
             format!("{} = {}", net.subnet_mask(), pfx)
         } else {
             net.subnet_mask().to_string()
         };
-        output_initial_columns("Netmask:", &netmask_addr_str);
-        output_binary_address(net.subnet_mask(), None, false, Some(MASK_BITS_COLOR));
-        println!();
+        output_initial_columns("Netmask:", &netmask_addr_str, stdout);
+        output_binary_address(net.subnet_mask(), None, false, Some(MASK_BITS_COLOR), stdout);
+        writeln!(stdout).unwrap();
 
-        output_initial_columns("Wildcard:", &net.cisco_wildcard().to_string());
-        output_binary_address(net.cisco_wildcard(), None, false, None);
-        println!();
+        output_initial_columns("Wildcard:", &net.cisco_wildcard().to_string(), stdout);
+        output_binary_address(net.cisco_wildcard(), None, false, None, stdout);
+        writeln!(stdout).unwrap();
 
-        write_in_color("=>", Some(LABEL_COLOR), 0);
-        println!();
+        {
+            let mut label_color_writer = stdout.in_color(LABEL_COLOR);
+            write!(label_color_writer, "=>").unwrap();
+        }
+        writeln!(stdout).unwrap();
     }
 
     let net_str = if let Some(pfx) = net.cidr_prefix() {
@@ -87,64 +102,69 @@ fn output_network<A: IpAddress, OBA: Fn(A, Option<A>, bool, Option<Color>), OC: 
     } else {
         net.base_addr().to_string()
     };
-    output_initial_columns("Network:", &net_str);
-    output_binary_address(net.base_addr(), Some(net.subnet_mask()), true, None);
-    println!();
+    output_initial_columns("Network:", &net_str, stdout);
+    output_binary_address(net.base_addr(), Some(net.subnet_mask()), true, None, stdout);
+    writeln!(stdout).unwrap();
 
     if let Some(fha) = net.first_host_addr() {
-        output_initial_columns("HostMin:", &fha.to_string());
-        output_binary_address(fha, None, false, None);
-        println!();
+        output_initial_columns("HostMin:", &fha.to_string(), stdout);
+        output_binary_address(fha, None, false, None, stdout);
+        writeln!(stdout).unwrap();
         let lha = net.last_host_addr().unwrap();
-        output_initial_columns("HostMax:", &lha.to_string());
-        output_binary_address(lha, None, false, None);
+        output_initial_columns("HostMax:", &lha.to_string(), stdout);
+        output_binary_address(lha, None, false, None, stdout);
     } else {
-        write_in_color("no hosts", Some(LABEL_COLOR), 0);
+        let mut label_color_writer = stdout.in_color(LABEL_COLOR);
+        write!(label_color_writer, "no hosts").unwrap();
     }
-    println!();
+    writeln!(stdout).unwrap();
 
     if let Some(bc) = net.broadcast_addr() {
-        output_initial_columns("Broadcast:", &bc.to_string());
-        output_binary_address(bc, None, false, None);
+        output_initial_columns("Broadcast:", &bc.to_string(), stdout);
+        output_binary_address(bc, None, false, None, stdout);
     } else {
-        write_in_color("no broadcast", Some(LABEL_COLOR), 0);
+        let mut label_color_writer = stdout.in_color(LABEL_COLOR);
+        write!(label_color_writer, "no broadcast").unwrap();
     }
-    println!();
+    writeln!(stdout).unwrap();
 
     if cfg!(feature = "num-bigint") {
         if net.host_count() > BigInt::from(0) {
-            output_initial_columns("Hosts/Net:", &net.host_count().to_string());
+            output_initial_columns("Hosts/Net:", &net.host_count().to_string(), stdout);
             let top_bits = bytes_to_binary(&net.base_addr().to_bytes()[0..1]);
             let top_mask_bits = bytes_to_binary(&net.subnet_mask().to_bytes()[0..1]);
-            output_class(&top_bits, &top_mask_bits);
-            println!();
+            output_class(&top_bits, &top_mask_bits, stdout);
+            writeln!(stdout).unwrap();
         } else {
-            write_in_color("no hosts/net", Some(LABEL_COLOR), 0);
+            let mut label_color_writer = stdout.in_color(LABEL_COLOR);
+            write!(label_color_writer, "no hosts/net").unwrap();
         }
     }
 }
 
-fn output_ipv4_class(top_bits: &str, top_mask_bits: &str) {
+fn output_ipv4_class<O: Output>(top_bits: &str, top_mask_bits: &str, stdout: &mut O) {
+    let mut class_bits_color_writer = stdout.in_color(CLASS_BITS_COLOR);
     if top_bits.starts_with("0") && top_mask_bits.starts_with("1") {
-        write_in_color("Class A", Some(CLASS_BITS_COLOR), 0);
+        write!(class_bits_color_writer, "Class A").unwrap();
     } else if top_bits.starts_with("10") && top_mask_bits.starts_with("11") {
-        write_in_color("Class B", Some(CLASS_BITS_COLOR), 0);
+        write!(class_bits_color_writer, "Class B").unwrap();
     } else if top_bits.starts_with("110") && top_mask_bits.starts_with("111") {
-        write_in_color("Class C", Some(CLASS_BITS_COLOR), 0);
+        write!(class_bits_color_writer, "Class C").unwrap();
     } else if top_mask_bits.starts_with("1111") {
         if top_bits.starts_with("1110") {
-            write_in_color("Class D (multicast)", Some(CLASS_BITS_COLOR), 0);
+            write!(class_bits_color_writer, "Class D (multicast)").unwrap();
         } else if top_bits.starts_with("1111") {
-            write_in_color("Class E (reserved)", Some(CLASS_BITS_COLOR), 0);
+            write!(class_bits_color_writer, "Class E (reserved)").unwrap();
         }
     }
 }
 
-fn output_binary_ipv4_address(
+fn output_binary_ipv4_address<O: Output>(
     addr: Ipv4Address,
     subnet_mask: Option<Ipv4Address>,
     mut color_class: bool,
-    override_color: Option<Color>
+    override_color: Option<Color>,
+    stdout: &mut O,
 ) {
     let addr_bytes = addr.to_bytes();
     let mask_bytes = subnet_mask.as_ref().map(|m| m.to_bytes());
@@ -156,12 +176,14 @@ fn output_binary_ipv4_address(
         let bits = bytes_to_binary(&[b]);
         let mask_bits = m.map(|mb| bytes_to_binary(&[mb]));
 
-        if override_color.is_some() {
+        if let Some(oc) = override_color {
             // simply output the address
-            write_in_color(bits, override_color, 0);
+            let mut color_writer = stdout.in_color(oc);
+            write!(color_writer, "{}", bits).unwrap();
         } else if mask_bits.is_none() {
             // simple output here too
-            write_in_color(bits, Some(HOST_BITS_COLOR), 0);
+            let mut color_writer = stdout.in_color(HOST_BITS_COLOR);
+            write!(color_writer, "{}", bits).unwrap();
         } else {
             // we must differentiate
 
@@ -215,22 +237,25 @@ fn output_binary_ipv4_address(
                     None
                 };
 
-                write_in_color(&String::from(bitvec[bit]), class_color.or(Some(color)), 0);
+                let mut color_writer = stdout.in_color(class_color.unwrap_or(color));
+                write!(color_writer, "{}", &String::from(bitvec[bit])).unwrap();
             }
         }
 
         if i < addr_bytes.len() - 1 {
             // add separator (dot)
-            write_in_color(".", Some(ADDR_SEP_COLOR), 0);
+            let mut color_writer = stdout.in_color(ADDR_SEP_COLOR);
+            write!(color_writer, ".").unwrap();
         }
     }
 }
 
-fn output_binary_ipv6_address(
+fn output_binary_ipv6_address<O: Output>(
     addr: Ipv6Address,
     subnet_mask: Option<Ipv6Address>,
     _color_class: bool,
-    override_color: Option<Color>
+    override_color: Option<Color>,
+    stdout: &mut O,
 ) {
     let addr_bytes = addr.to_bytes();
     let mask_bytes = subnet_mask.as_ref().map(|m| m.to_bytes());
@@ -242,12 +267,14 @@ fn output_binary_ipv6_address(
         let bits = bytes_to_binary(&[b]);
         let mask_bits = m.map(|mb| bytes_to_binary(&[mb]));
 
-        if override_color.is_some() {
+        if let Some(oc) = override_color {
             // simply output the address
-            write_in_color(bits, override_color, 0);
+            let mut color_writer = stdout.in_color(oc);
+            write!(color_writer, "{}", bits).unwrap();
         } else if mask_bits.is_none() {
             // simple output here too
-            write_in_color(bits, Some(HOST_BITS_COLOR), 0);
+            let mut color_writer = stdout.in_color(HOST_BITS_COLOR);
+            write!(color_writer, "{}", bits).unwrap();
         } else {
             // we must differentiate
             let bitvec: Vec<char> = bits.chars().collect();
@@ -264,19 +291,21 @@ fn output_binary_ipv6_address(
                     HOST_BITS_COLOR
                 };
 
-                write_in_color(&String::from(bitvec[bit]), Some(color), 0);
+                let mut color_writer = stdout.in_color(color);
+                write!(color_writer, "{}", &String::from(bitvec[bit])).unwrap();
             }
         }
 
         if i < addr_bytes.len() - 1 && i % 2 == 1 {
             // add separator (colon)
-            write_in_color(":", Some(ADDR_SEP_COLOR), 0);
+            let mut color_writer = stdout.in_color(ADDR_SEP_COLOR);
+            write!(color_writer, ":").unwrap();
         }
     }
 }
 
 /// Outputs and dissects information about an IPv4 network.
-pub fn output_ipv4_network(net: IpNetwork<Ipv4Address>, addr: Option<Ipv4Address>) {
+pub fn output_ipv4_network<O: Output>(net: IpNetwork<Ipv4Address>, addr: Option<Ipv4Address>, stdout: &mut O) {
     output_network(
         11,
         21,
@@ -284,17 +313,19 @@ pub fn output_ipv4_network(net: IpNetwork<Ipv4Address>, addr: Option<Ipv4Address
         output_ipv4_class,
         net,
         addr,
+        stdout,
     )
 }
 
 /// Outputs and dissects information about an IPv6 network.
-pub fn output_ipv6_network(net: IpNetwork<Ipv6Address>, addr: Option<Ipv6Address>) {
+pub fn output_ipv6_network<O: Output>(net: IpNetwork<Ipv6Address>, addr: Option<Ipv6Address>, stdout: &mut O) {
     output_network(
         11,
         46,
         output_binary_ipv6_address,
-        |_top_bits, _top_mask_bits| {},
+        |_top_bits, _top_mask_bits, _stdout| {},
         net,
         addr,
+        stdout,
     )
 }

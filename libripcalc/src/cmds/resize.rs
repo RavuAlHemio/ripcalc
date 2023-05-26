@@ -1,37 +1,36 @@
 use std::cmp::Ordering;
 use std::convert::TryInto;
 
-use crate::usage;
 use crate::addr::{IpAddress, Ipv4Address, Ipv6Address};
 use crate::bit_manip::{unravel_address, weave_address};
 use crate::cidr::subnet_mask_bytes_from_prefix;
-use crate::cmds::{NetworkSpec, ParsedSubnet, parse_netspec, parse_subnet};
+use crate::cmds::{CommandResult, NetworkSpec, ParsedSubnet, parse_netspec, parse_subnet};
 use crate::cmds::show_net::{output_ipv4_network, output_ipv6_network};
 use crate::net::IpNetwork;
+use crate::output::Output;
 
 
-pub fn resize(args: &[String]) -> i32 {
+pub fn resize<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
     if args.len() != 4 {
         // ripcalc --resize IPADDRESS/SUBNET SUBNET
-        usage();
-        return 1;
+        return CommandResult::WrongUsage;
     }
 
     match parse_netspec(&args[2]) {
         Err(e) => {
-            eprintln!("failed to parse network spec {:?}: {}", args[2], e);
-            1
+            writeln!(stderr, "failed to parse network spec {:?}: {}", args[2], e).unwrap();
+            CommandResult::Error(1)
         },
         Ok(NetworkSpec::Ipv4(_addr, net)) => {
             let mask = match parse_subnet(&args[3]) {
                 Err(e) => {
-                    eprintln!("failed to parse subnet {:?}: {}", args[3], e);
-                    return 1;
+                    writeln!(stderr, "failed to parse subnet {:?}: {}", args[3], e).unwrap();
+                    return CommandResult::Error(1);
                 },
                 Ok(ParsedSubnet::Cidr(cidr)) => {
                     if cidr > 32 {
-                        eprintln!("CIDR value {} is greater than maximum for IPv4 (32)", cidr);
-                        return 1;
+                        writeln!(stderr, "CIDR value {} is greater than maximum for IPv4 (32)", cidr).unwrap();
+                        return CommandResult::Error(1);
                     }
                     let mask_bytes = subnet_mask_bytes_from_prefix(cidr, 4);
                     Ipv4Address::from_bytes(&mask_bytes).unwrap()
@@ -40,23 +39,23 @@ pub fn resize(args: &[String]) -> i32 {
                     m
                 },
                 Ok(ParsedSubnet::Ipv6Mask(_)) => {
-                    eprintln!("cannot resize an IPv4 subnet to an IPv6 mask");
-                    return 1;
+                    writeln!(stderr, "cannot resize an IPv4 subnet to an IPv6 mask").unwrap();
+                    return CommandResult::Error(1);
                 },
             };
-            resize_and_output(net, mask, output_ipv4_network);
-            0
+            resize_and_output(net, mask, output_ipv4_network, stdout);
+            CommandResult::Ok
         },
         Ok(NetworkSpec::Ipv6(_addr, net)) => {
             let mask = match parse_subnet(&args[3]) {
                 Err(e) => {
-                    eprintln!("failed to parse subnet {:?}: {}", args[3], e);
-                    return 1;
+                    writeln!(stderr, "failed to parse subnet {:?}: {}", args[3], e).unwrap();
+                    return CommandResult::Error(1);
                 },
                 Ok(ParsedSubnet::Cidr(cidr)) => {
                     if cidr > 128 {
-                        eprintln!("CIDR value {} is greater than maximum for IPv6 (128)", cidr);
-                        return 1;
+                        writeln!(stderr, "CIDR value {} is greater than maximum for IPv6 (128)", cidr).unwrap();
+                        return CommandResult::Error(1);
                     }
                     let mask_bytes = subnet_mask_bytes_from_prefix(cidr, 16);
                     Ipv6Address::from_bytes(&mask_bytes).unwrap()
@@ -65,39 +64,48 @@ pub fn resize(args: &[String]) -> i32 {
                     m
                 },
                 Ok(ParsedSubnet::Ipv4Mask(_)) => {
-                    eprintln!("cannot resize an IPv6 subnet to an IPv4 mask");
-                    return 1;
+                    writeln!(stderr, "cannot resize an IPv6 subnet to an IPv4 mask").unwrap();
+                    return CommandResult::Error(1);
                 },
             };
-            resize_and_output(net, mask, output_ipv6_network);
-            0
+            resize_and_output(net, mask, output_ipv6_network, stdout);
+            CommandResult::Ok
         },
     }
 }
 
-fn resize_and_output<A: IpAddress, ON: Fn(IpNetwork<A>, Option<A>)>(initial_net: IpNetwork<A>, new_subnet_mask: A, output_network: ON) {
+fn resize_and_output<
+    A: IpAddress,
+    ON: Fn(IpNetwork<A>, Option<A>, &mut O),
+    O: Output,
+>(
+    initial_net: IpNetwork<A>,
+    new_subnet_mask: A,
+    output_network: ON,
+    stdout: &mut O,
+) {
     let (resized, net_ordering) = resize_network(initial_net, new_subnet_mask);
 
-    println!("Original network:");
-    output_network(initial_net, None);
-    println!();
+    writeln!(stdout, "Original network:").unwrap();
+    output_network(initial_net, None, stdout);
+    writeln!(stdout).unwrap();
 
     match net_ordering {
         Ordering::Less => {
-            println!("Supernet:");
-            output_network(resized[0], None);
-            println!();
+            writeln!(stdout, "Supernet:").unwrap();
+            output_network(resized[0], None, stdout);
+            writeln!(stdout).unwrap();
         },
         Ordering::Equal => {
-            println!("Same-sized net:");
-            output_network(resized[0], None);
-            println!();
+            writeln!(stdout, "Same-sized net:").unwrap();
+            output_network(resized[0], None, stdout);
+            writeln!(stdout).unwrap();
         },
         Ordering::Greater => {
             for i in 0..resized.len() {
-                println!("Subnet {}:", i+1);
-                output_network(resized[i], None);
-                println!();
+                writeln!(stdout, "Subnet {}:", i+1).unwrap();
+                output_network(resized[i], None, stdout);
+                writeln!(stdout).unwrap();
             }
         },
     }

@@ -1,10 +1,10 @@
 use std::iter::Iterator;
 
-use crate::usage;
 use crate::addr::IpAddress;
 use crate::bit_manip::{unravel_address, weave_address};
-use crate::cmds::{NetworkSpec, parse_netspec};
+use crate::cmds::{CommandResult, NetworkSpec, parse_netspec};
 use crate::net::IpNetwork;
+use crate::output::Output;
 
 
 struct NetworkIter<A: IpAddress> {
@@ -48,30 +48,29 @@ impl<A: IpAddress> Iterator for NetworkIter<A> {
     }
 }
 
-pub fn enumerate(args: &[String]) -> i32 {
+pub fn enumerate<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --enumerate IPNETWORK...
     if args.len() < 3 {
-        usage();
-        return 1;
+        return CommandResult::WrongUsage;
     }
 
-    let mut ret: i32 = 0;
+    let mut ret = CommandResult::Ok;
     for net_str in &args[2..] {
         match parse_netspec(net_str) {
             Err(e) => {
-                eprintln!("failed to parse network {:?}: {}", net_str, e);
-                ret = 1;
+                writeln!(stderr, "failed to parse network {:?}: {}", net_str, e).unwrap();
+                ret = CommandResult::Error(1);
             },
             Ok(NetworkSpec::Ipv4(_addr, net)) => {
                 let iterator = NetworkIter::new(net);
                 for addr in iterator {
-                    println!("{}", addr);
+                    writeln!(stdout, "{}", addr).unwrap();
                 }
             },
             Ok(NetworkSpec::Ipv6(_addr, net)) => {
                 let iterator = NetworkIter::new(net);
                 for addr in iterator {
-                    println!("{}", addr);
+                    writeln!(stdout, "{}", addr).unwrap();
                 }
             },
         };

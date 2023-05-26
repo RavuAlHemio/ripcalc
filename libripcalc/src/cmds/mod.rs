@@ -32,6 +32,15 @@ static IPV6_WITH_CIDR_REGEX: Lazy<Regex> = Lazy::new(||
 );
 
 
+/// The result of a command execution.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum CommandResult {
+    Ok,
+    WrongUsage,
+    Error(i32),
+}
+
+
 /// An IP address that has been parsed from a string.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ParsedIpAddress {

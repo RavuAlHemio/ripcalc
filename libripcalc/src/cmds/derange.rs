@@ -1,53 +1,52 @@
 use std::cmp::{max, min};
 
-use crate::usage;
 use crate::addr::IpAddress;
-use crate::cmds::{parse_addr, ParsedIpAddress};
+use crate::cmds::{CommandResult, parse_addr, ParsedIpAddress};
 use crate::net::IpNetwork;
+use crate::output::Output;
 
 
-pub fn derange(args: &[String]) -> i32 {
+pub fn derange<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --derange ONE OTHER
     if args.len() != 4 {
-        usage();
-        return 1;
+        return CommandResult::WrongUsage;
     }
 
     let one = match parse_addr(&args[2]) {
         Ok(a) => a,
         Err(e) => {
-            eprintln!("failed to parse first address: {}", e);
-            return 1;
+            writeln!(stderr, "failed to parse first address: {}", e).unwrap();
+            return CommandResult::Error(1);
         },
     };
     let other = match parse_addr(&args[3]) {
         Ok(a) => a,
         Err(e) => {
-            eprintln!("failed to parse second address: {}", e);
-            return 1;
+            writeln!(stderr, "failed to parse second address: {}", e).unwrap();
+            return CommandResult::Error(1);
         },
     };
 
     if one.version() != other.version() {
-        eprintln!("both addresses must be the same version");
-        return 1;
+        writeln!(stderr, "both addresses must be the same version").unwrap();
+        return CommandResult::Error(1);
     } else if let ParsedIpAddress::Ipv4(one_addr) = one {
         if let ParsedIpAddress::Ipv4(other_addr) = other {
             let subnets = range_to_subnets(one_addr, other_addr);
             for subnet in subnets {
-                println!("{}", subnet);
+                writeln!(stdout, "{}", subnet).unwrap();
             }
         }
     } else if let ParsedIpAddress::Ipv6(one_addr) = one {
         if let ParsedIpAddress::Ipv6(other_addr) = other {
             let subnets = range_to_subnets(one_addr, other_addr);
             for subnet in subnets {
-                println!("{}", subnet);
+                writeln!(stdout, "{}", subnet).unwrap();
             }
         }
     }
 
-    0
+    CommandResult::Ok
 }
 
 

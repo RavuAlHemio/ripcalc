@@ -2,19 +2,18 @@ use std::collections::HashMap;
 
 use num_bigint::BigInt;
 
-use crate::usage;
 use crate::addr::IpAddress;
-use crate::cmds::{NetworkSpec, parse_netspec};
+use crate::cmds::{CommandResult, NetworkSpec, parse_netspec};
 use crate::cmds::derange::range_to_subnets;
 use crate::cmds::show_net::{output_ipv4_network, output_ipv6_network};
 use crate::net::IpNetwork;
+use crate::output::Output;
 
 
-pub fn split(args: &[String]) -> i32 {
+pub fn split<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --split IPADDRESS/CIDRPREFIX HOSTCOUNT...
     if args.len() < 4 {
-        usage();
-        return 1;
+        return CommandResult::WrongUsage;
     }
 
     let zero = BigInt::from(0);
@@ -24,47 +23,56 @@ pub fn split(args: &[String]) -> i32 {
         let host_count: BigInt = match count_str.parse() {
             Ok(bu) => bu,
             Err(e) => {
-                eprintln!("failed to parse host count {:?}: {}", count_str, e);
-                return 1;
+                writeln!(stderr, "failed to parse host count {:?}: {}", count_str, e).unwrap();
+                return CommandResult::Error(1);
             },
         };
         if host_count < zero {
-            eprintln!("host counts must be zero or greater");
-            return 1;
+            writeln!(stderr, "host counts must be zero or greater").unwrap();
+            return CommandResult::Error(1);
         }
         host_counts.push(host_count);
     }
 
     match parse_netspec(&args[2]) {
         Err(e) => {
-            eprintln!("failed to parse network specification {:?}: {}", args[2], e);
-            1
+            writeln!(stderr, "failed to parse network specification {:?}: {}", args[2], e).unwrap();
+            CommandResult::Error(1)
         },
         Ok(NetworkSpec::Ipv4(_addr, net)) => {
-            output_split(net, host_counts, output_ipv4_network)
+            output_split(net, host_counts, output_ipv4_network, stdout)
         },
         Ok(NetworkSpec::Ipv6(_addr, net)) => {
-            output_split(net, host_counts, output_ipv6_network)
+            output_split(net, host_counts, output_ipv6_network, stdout)
         },
     }
 }
 
-fn output_split<A: IpAddress, ON: Fn(IpNetwork<A>, Option<A>)>(subnet: IpNetwork<A>, host_counts: Vec<BigInt>, output_network: ON) -> i32 {
-    println!("Subnet to split:");
-    output_network(subnet, None);
-    println!();
+fn output_split<
+    A: IpAddress,
+    ON: Fn(IpNetwork<A>, Option<A>, &mut O),
+    O: Output,
+>(
+    subnet: IpNetwork<A>,
+    host_counts: Vec<BigInt>,
+    output_network: ON,
+    stdout: &mut O,
+) -> CommandResult {
+    writeln!(stdout, "Subnet to split:").unwrap();
+    output_network(subnet, None, stdout);
+    writeln!(stdout).unwrap();
 
     let split_subnets = match split_subnet(subnet, host_counts.clone()) {
         Some(s) => s,
         None => {
-            println!("Not enough addresses available for this split.");
-            return 1;
+            writeln!(stdout, "Not enough addresses available for this split.").unwrap();
+            return CommandResult::Error(1);
         },
     };
     for (host_count, splitnet) in host_counts.iter().zip(&split_subnets) {
-        println!("Subnet for {} hosts:", host_count);
-        output_network(*splitnet, None);
-        println!();
+        writeln!(stdout, "Subnet for {} hosts:", host_count).unwrap();
+        output_network(*splitnet, None, stdout);
+        writeln!(stdout).unwrap();
     }
 
     let max_used_address = split_subnets.iter()
@@ -72,18 +80,18 @@ fn output_split<A: IpAddress, ON: Fn(IpNetwork<A>, Option<A>)>(subnet: IpNetwork
         .max()
         .expect("no subnets returned");
     if !subnet.contains(&max_used_address) {
-        println!("Network is too small");
+        writeln!(stdout, "Network is too small").unwrap();
     } else if let Some(next_unused_address) = max_used_address.add_offset(1) {
-        println!("Unused networks:");
+        writeln!(stdout, "Unused networks:").unwrap();
         let last_address = subnet.last_addr_of_subnet();
         let unused_subnets = range_to_subnets(next_unused_address, last_address);
 
         for unused_subnet in unused_subnets {
-            println!("{}", unused_subnet);
+            writeln!(stdout, "{}", unused_subnet).unwrap();
         }
     }
 
-    0
+    CommandResult::Ok
 }
 
 /// Splits a larger network into smaller networks, each housing at least a specific number of hosts.
