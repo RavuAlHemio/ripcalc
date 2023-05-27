@@ -10,6 +10,7 @@ namespace Ripcalc {
         ripcalc_resize: () => void;
         ripcalc_enumerate: () => void;
     }
+    let wasmInstance: WebAssembly.WebAssemblyInstantiatedSource;
     let exports: WasmRipcalcExports;
     let output: string = "";
     let errorOutput: string = "";
@@ -68,8 +69,8 @@ namespace Ripcalc {
         return (checkbox === null) ? false : checkbox.checked;
     }
 
-    export async function run() {
-        const wasmInstance = await WebAssembly.instantiateStreaming(
+    async function obtainWasmInstance() {
+        wasmInstance = await WebAssembly.instantiateStreaming(
             fetch("wasmripcalc.wasm"),
             {
                 wasm_interop: {
@@ -79,48 +80,60 @@ namespace Ripcalc {
             },
         );
         exports = <WasmRipcalcExports><unknown>wasmInstance.instance.exports;
+    }
 
+    function runRipcalc() {
         output = "";
         errorOutput = "";
 
         if (isChecked("section-closer-shownet")) {
             // output subnet
-            const subnetField = <HTMLInputElement>document.getElementById("shownet-net");
-            strToU16Buffer(subnetField.value);
-            exports.ripcalc_show_net();
+            const subnetField = <HTMLInputElement|null>document.getElementById("shownet-net");
+            if (subnetField !== null) {
+                strToU16Buffer(subnetField.value);
+                exports.ripcalc_show_net();
+            }
         } else if (isChecked("section-closer-minimize")) {
             // minimize nets
-            const netsField = <HTMLInputElement>document.getElementById("minimize-nets");
-            const nets = (
-                netsField.value 
-                    .split("\n")
-                    .map(entry => entry.trim())
-                    .filter(entry => entry.length > 0)
-                    .join("\n")
-            );
-            strToU16Buffer(nets);
-            exports.ripcalc_minimize();
+            const netsField = <HTMLInputElement|null>document.getElementById("minimize-nets");
+            if (netsField !== null) {
+                const nets = (
+                    netsField.value
+                        .split("\n")
+                        .map(entry => entry.trim())
+                        .filter(entry => entry.length > 0)
+                        .join("\n")
+                );
+                strToU16Buffer(nets);
+                exports.ripcalc_minimize();
+            }
         } else if (isChecked("section-closer-derange")) {
-            const startField = <HTMLInputElement>document.getElementById("derange-start");
-            const start = startField.value.replace(/ /g, "");
-            const endField = <HTMLInputElement>document.getElementById("derange-end");
-            const end = endField.value.replace(/ /g, "");
-            strToU16Buffer(`${start} ${end}`);
-            exports.ripcalc_derange();
+            const startField = <HTMLInputElement|null>document.getElementById("derange-start");
+            const endField = <HTMLInputElement|null>document.getElementById("derange-end");
+            if (startField !== null && endField !== null) {
+                const start = startField.value.replace(/ /g, "");
+                const end = endField.value.replace(/ /g, "");
+                strToU16Buffer(`${start} ${end}`);
+                exports.ripcalc_derange();
+            }
         } else if (isChecked("section-closer-resize")) {
-            const networkField = <HTMLInputElement>document.getElementById("resize-network");
-            const network = networkField.value.replace(/ /g, "");
-            const prefixField = <HTMLInputElement>document.getElementById("resize-prefix");
-            const prefix = prefixField.value.replace(/ /g, "");
-            strToU16Buffer(`${network} ${prefix}`);
-            exports.ripcalc_resize();
+            const networkField = <HTMLInputElement|null>document.getElementById("resize-network");
+            const prefixField = <HTMLInputElement|null>document.getElementById("resize-prefix");
+            if (networkField !== null && prefixField !== null) {
+                const network = networkField.value.replace(/ /g, "");
+                const prefix = prefixField.value.replace(/ /g, "");
+                strToU16Buffer(`${network} ${prefix}`);
+                exports.ripcalc_resize();
+            }
         } else if (isChecked("section-closer-enumerate")) {
-            const networkField = <HTMLInputElement>document.getElementById("enumerate-network");
-            strToU16Buffer(networkField.value);
-            exports.ripcalc_enumerate();
+            const networkField = <HTMLInputElement|null>document.getElementById("enumerate-network");
+            if (networkField !== null) {
+                strToU16Buffer(networkField.value);
+                exports.ripcalc_enumerate();
+            }
         }
 
-        const terminal = document.querySelector("pre.terminal");
+        const terminal = <HTMLPreElement|null>document.querySelector("pre.terminal");
         if (terminal !== null) {
             if (errorOutput.length > 0) {
                 const redSpan = document.createElement("span");
@@ -139,12 +152,22 @@ namespace Ripcalc {
         }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-        const doButton = document.getElementById("do-button");
-        if (doButton !== null) {
-            doButton.addEventListener("click", () => {
-                run();
+    async function setUp() {
+        await obtainWasmInstance();
+        const form = <HTMLFormElement|null>document.getElementById("ripcalc-form");
+        if (form !== null) {
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                runRipcalc();
             });
         }
+        const terminal = <HTMLPreElement|null>document.querySelector("pre.terminal");
+        if (terminal !== null) {
+            terminal.textContent = "ready";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        setUp();
     });
 }

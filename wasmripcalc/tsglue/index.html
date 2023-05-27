@@ -30,6 +30,7 @@ body { font-family: sans-serif; }
 </head>
 <body>
 <h1>ripcalc</h1>
+<form id="ripcalc-form">
 <div class="closer">
     <input type="radio" name="mode" value="shownet" id="section-closer-shownet" checked="checked" />
     <label for="section-closer-shownet">Show network</label>
@@ -104,8 +105,9 @@ body { font-family: sans-serif; }
     </div>
 </div>
 <p>
-    <input type="button" value="do" id="do-button" />
+    <input type="submit" value="do" />
 </p>
+</form>
 <pre class="terminal"></pre>
 </body>
 </html>
