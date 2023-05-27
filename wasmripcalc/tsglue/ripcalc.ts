@@ -42,7 +42,7 @@ namespace Ripcalc {
         const array = getBuffer();
         let str = "";
         for (let i = 0; i < array.length; i++) {
-            str += String.fromCharCode(array[i]);
+            str += String.fromCharCode(array[i]!);
         }
         output += str;
     }
@@ -51,7 +51,7 @@ namespace Ripcalc {
         const array = getBuffer();
         let str = "";
         for (let i = 0; i < array.length; i++) {
-            str += String.fromCharCode(array[i]);
+            str += String.fromCharCode(array[i]!);
         }
         errorOutput += str;
     }
@@ -121,25 +121,30 @@ namespace Ripcalc {
         }
 
         const terminal = document.querySelector("pre.terminal");
-        if (errorOutput.length > 0) {
-            const redSpan = document.createElement("span");
-            redSpan.classList.add("color");
-            redSpan.classList.add("color-red");
-            redSpan.classList.add("stderr");
-            redSpan.textContent = errorOutput;
+        if (terminal !== null) {
+            if (errorOutput.length > 0) {
+                const redSpan = document.createElement("span");
+                redSpan.classList.add("color");
+                redSpan.classList.add("color-red");
+                redSpan.classList.add("stderr");
+                redSpan.textContent = errorOutput;
 
-            while (terminal.firstChild !== null) {
-                terminal.firstChild.remove();
+                while (terminal.firstChild !== null) {
+                    terminal.firstChild.remove();
+                }
+                terminal.appendChild(redSpan);
+            } else {
+                terminal.innerHTML = output;
             }
-            terminal.appendChild(redSpan);
-        } else {
-            terminal.innerHTML = output;
         }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("do-button").addEventListener("click", () => {
-            run();
-        })
+        const doButton = document.getElementById("do-button");
+        if (doButton !== null) {
+            doButton.addEventListener("click", () => {
+                run();
+            });
+        }
     });
 }
