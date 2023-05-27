@@ -1,0 +1,81 @@
+name: ripcalc build
+on: [push]
+jobs:
+  build-arch-debug:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: update packages
+        run: pacman -Syu --noconfirm
+      - name: install packages
+        run: pacman -S --needed --noconfirm cargo git
+      - name: trust repo directory
+        run: git config --global --add safe.directory /__w/ripcalc/ripcalc
+      - name: check out repository code
+        uses: actions/checkout@v3
+      - name: run debug build
+        run: cargo build --package ripcalc
+      - name: run debug tests on libripcalc
+        run: cargo test --package libripcalc
+      - name: run debug tests on ripcalc
+        run: cargo test --package ripcalc
+      - name: upload debug binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: ripcalc-debug
+          path: |
+            target/debug/ripcalc
+  build-arch-release:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: update packages
+        run: pacman -Syu --noconfirm
+      - name: install packages
+        run: pacman -S --needed --noconfirm cargo git
+      - name: trust repo directory
+        run: git config --global --add safe.directory /__w/ripcalc/ripcalc
+      - name: check out repository code
+        uses: actions/checkout@v3
+      - name: run release build
+        run: cargo build --package ripcalc --release
+      - name: run release tests on libripcalc
+        run: cargo test --package libripcalc --release
+      - name: run release tests on ripcalc
+        run: cargo test --package ripcalc --release
+      - name: upload release binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: ripcalc-release
+          path: |
+            target/release/ripcalc
+  build-wasm:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: update packages
+        run: pacman -Syu --noconfirm
+      - name: install packages
+        run: pacman -S --needed --noconfirm rustup git typescript
+      - name: install Rust toolchain
+        run: rustup toolchain install stable
+      - name: install Rust WASM toolchain
+        run: rustup target add wasm32-unknown-unknown
+      - name: trust repo directory
+        run: git config --global --add safe.directory /__w/ripcalc/ripcalc
+      - name: check out repository code
+        uses: actions/checkout@v3
+      - name: run wasm release build
+        run: cargo build --package=wasmripcalc --target=wasm32-unknown-unknown --release
+      - name: run TypeScript build
+        run: cd wasmripcalc/tsglue && tsc
+      - name: upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ripcalc-wasm
+          path: |
+            target/wasm32-unknown-unknown/release/wasmripcalc.wasm
+            wasmripcalc/tsglue/index.html
+            wasmripcalc/tsglue/ripcalc.ts
+            wasmripcalc/tsglue/ripcalc.js
+            wasmripcalc/tsglue/ripcalc.js.map
