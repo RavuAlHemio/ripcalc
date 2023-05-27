@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ripcalc, WebAssembly Edition</title>
+<script src="ripcalc.js"></script>
+<style type="text/css">
+body { font-family: sans-serif; }
+.terminal { padding: 1em; background-color: #000; color: rgb(204, 204, 204); }
+.terminal span.color-black { color: rgb(12, 12, 12); }
+.terminal span.color-dark-red { color: rgb(197, 15, 31); }
+.terminal span.color-dark-green { color: rgb(19, 161, 14); }
+.terminal span.color-dark-yellow { color: rgb(193, 156, 0); }
+.terminal span.color-dark-blue { color: rgb(0, 55, 218); }
+.terminal span.color-dark-magenta { color: rgb(136, 23, 152); }
+.terminal span.color-dark-cyan { color: rgb(58, 150, 221); }
+.terminal span.color-gray { color: rgb(204, 204, 204); }
+.terminal span.color-dark-gray { color: rgb(118, 118, 118); }
+.terminal span.color-red { color: rgb(231, 72, 86); }
+.terminal span.color-green { color: rgb(22, 198, 12); }
+.terminal span.color-yellow { color: rgb(249, 241, 165); }
+.terminal span.color-blue { color: rgb(59, 120, 255); }
+.terminal span.color-magenta { color: rgb(180, 0, 158); }
+.terminal span.color-cyan { color: rgb(97, 214, 214); }
+.terminal span.color-white { color: rgb(242, 242, 242); }
+.closer { border: 1px solid #999; }
+.closer > .closed-section { display: none; }
+.closer > input[type=radio]:checked ~ div.closed-section { display: block; }
+</style>
+</head>
+<body>
+<h1>ripcalc</h1>
+<div class="closer">
+    <input type="radio" name="mode" value="shownet" id="section-closer-shownet" checked="checked" />
+    <label for="section-closer-shownet">Show network</label>
+    <div class="closed-section">
+        <p>
+            <label>
+                IP network:
+                <input type="text" id="shownet-net" />
+            </label>
+        </p>
+    </div>
+</div>
+<div class="closer">
+    <input type="radio" name="mode" value="minimize" id="section-closer-minimize" />
+    <label for="section-closer-minimize">Minimize</label>
+    <div class="closed-section">
+        <p>
+            <label>
+                Networks:<br/>
+                <textarea id="minimize-nets"></textarea>
+            </label>
+        </p>
+    </div>
+</div>
+<div class="closer">
+    <input type="radio" name="mode" value="derange" id="section-closer-derange" />
+    <label for="section-closer-derange">Derange</label>
+    <div class="closed-section">
+        <p>
+            <label>
+                Range start:
+                <input type="text" id="derange-start" />
+            </label>
+        </p>
+        <p>
+            <label>
+                Range end:
+                <input type="text" id="derange-end" />
+            </label>
+        </p>
+        <p>(Ranges are inclusive on both ends.)</p>
+    </div>
+</div>
+<div class="closer">
+    <input type="radio" name="mode" value="resize" id="section-closer-resize" />
+    <label for="section-closer-resize">Resize</label>
+    <div class="closed-section">
+        <p>
+            <label>
+                Existing network:
+                <input type="text" id="resize-network" />
+            </label>
+        </p>
+        <p>
+            <label>
+                New subnet mask/prefix:
+                <input type="text" id="resize-prefix" />
+            </label>
+        </p>
+    </div>
+</div>
+<div class="closer">
+    <input type="radio" name="mode" value="enumerate" id="section-closer-enumerate" />
+    <label for="section-closer-enumerate">Enumerate</label>
+    <div class="closed-section">
+        <p>
+            <label>
+                Network:
+                <input type="text" id="enumerate-network" />
+            </label>
+        </p>
+    </div>
+</div>
+<p>
+    <input type="button" value="do" id="do-button" />
+</p>
+<pre class="terminal"></pre>
+</body>
+</html>

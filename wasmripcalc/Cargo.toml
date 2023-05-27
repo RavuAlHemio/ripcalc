@@ -1,0 +1,11 @@
+[package]
+name = "wasmripcalc"
+version = "0.1.0"
+authors = ["Ondřej Hošek <ondra.hosek@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+libripcalc = { path = "../libripcalc" }

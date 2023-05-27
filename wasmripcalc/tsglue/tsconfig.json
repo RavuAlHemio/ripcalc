@@ -1,0 +1,8 @@
+{
+  "include": ["*.ts"],
+  "compilerOptions": {
+    "module": "None",
+    "lib": ["DOM", "ES2015"],
+    "sourceMap": true
+  }
+}
