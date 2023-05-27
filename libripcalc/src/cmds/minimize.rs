@@ -6,7 +6,7 @@ use crate::net::IpNetwork;
 use crate::output::Output;
 
 
-pub fn minimize<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
+pub fn minimize<S: AsRef<str>, O: Output, E: Output>(args: &[S], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --minimize IPADDRESS/SUBNET...
     if args.len() < 3 {
         return CommandResult::WrongUsage;

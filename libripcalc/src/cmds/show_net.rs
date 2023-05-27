@@ -19,7 +19,7 @@ const CLASS_BITS_COLOR: Color = Color::Magenta;
 const ADDR_SEP_COLOR: Color = Color::White;
 
 
-pub fn show_net<S: AsRef<str> + Debug, O: Output, E: Output>(args: &Vec<S>, stdout: &mut O, stderr: &mut E) -> CommandResult {
+pub fn show_net<S: AsRef<str> + Debug, O: Output, E: Output>(args: &[S], stdout: &mut O, stderr: &mut E) -> CommandResult {
     let mut specs = Vec::new();
     for arg in &args[1..] {
         match parse_netspec(arg.as_ref()) {

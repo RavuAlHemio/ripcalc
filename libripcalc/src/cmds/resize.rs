@@ -10,21 +10,21 @@ use crate::net::IpNetwork;
 use crate::output::Output;
 
 
-pub fn resize<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
+pub fn resize<S: AsRef<str>, O: Output, E: Output>(args: &[S], stdout: &mut O, stderr: &mut E) -> CommandResult {
     if args.len() != 4 {
         // ripcalc --resize IPADDRESS/SUBNET SUBNET
         return CommandResult::WrongUsage;
     }
 
-    match parse_netspec(&args[2]) {
+    match parse_netspec(args[2].as_ref()) {
         Err(e) => {
-            writeln!(stderr, "failed to parse network spec {:?}: {}", args[2], e).unwrap();
+            writeln!(stderr, "failed to parse network spec {:?}: {}", args[2].as_ref(), e).unwrap();
             CommandResult::Error(1)
         },
         Ok(NetworkSpec::Ipv4(_addr, net)) => {
-            let mask = match parse_subnet(&args[3]) {
+            let mask = match parse_subnet(args[3].as_ref()) {
                 Err(e) => {
-                    writeln!(stderr, "failed to parse subnet {:?}: {}", args[3], e).unwrap();
+                    writeln!(stderr, "failed to parse subnet {:?}: {}", args[3].as_ref(), e).unwrap();
                     return CommandResult::Error(1);
                 },
                 Ok(ParsedSubnet::Cidr(cidr)) => {
@@ -47,9 +47,9 @@ pub fn resize<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mu
             CommandResult::Ok
         },
         Ok(NetworkSpec::Ipv6(_addr, net)) => {
-            let mask = match parse_subnet(&args[3]) {
+            let mask = match parse_subnet(args[3].as_ref()) {
                 Err(e) => {
-                    writeln!(stderr, "failed to parse subnet {:?}: {}", args[3], e).unwrap();
+                    writeln!(stderr, "failed to parse subnet {:?}: {}", args[3].as_ref(), e).unwrap();
                     return CommandResult::Error(1);
                 },
                 Ok(ParsedSubnet::Cidr(cidr)) => {

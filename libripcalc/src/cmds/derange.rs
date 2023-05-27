@@ -6,20 +6,20 @@ use crate::net::IpNetwork;
 use crate::output::Output;
 
 
-pub fn derange<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
+pub fn derange<S: AsRef<str>, O: Output, E: Output>(args: &[S], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --derange ONE OTHER
     if args.len() != 4 {
         return CommandResult::WrongUsage;
     }
 
-    let one = match parse_addr(&args[2]) {
+    let one = match parse_addr(args[2].as_ref()) {
         Ok(a) => a,
         Err(e) => {
             writeln!(stderr, "failed to parse first address: {}", e).unwrap();
             return CommandResult::Error(1);
         },
     };
-    let other = match parse_addr(&args[3]) {
+    let other = match parse_addr(args[3].as_ref()) {
         Ok(a) => a,
         Err(e) => {
             writeln!(stderr, "failed to parse second address: {}", e).unwrap();

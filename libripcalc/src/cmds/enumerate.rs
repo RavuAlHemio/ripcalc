@@ -48,7 +48,7 @@ impl<A: IpAddress> Iterator for NetworkIter<A> {
     }
 }
 
-pub fn enumerate<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: &mut E) -> CommandResult {
+pub fn enumerate<S: AsRef<str>, O: Output, E: Output>(args: &[S], stdout: &mut O, stderr: &mut E) -> CommandResult {
     // ripcalc --enumerate IPNETWORK...
     if args.len() < 3 {
         return CommandResult::WrongUsage;
@@ -56,9 +56,9 @@ pub fn enumerate<O: Output, E: Output>(args: &[String], stdout: &mut O, stderr: 
 
     let mut ret = CommandResult::Ok;
     for net_str in &args[2..] {
-        match parse_netspec(net_str) {
+        match parse_netspec(net_str.as_ref()) {
             Err(e) => {
-                writeln!(stderr, "failed to parse network {:?}: {}", net_str, e).unwrap();
+                writeln!(stderr, "failed to parse network {:?}: {}", net_str.as_ref(), e).unwrap();
                 ret = CommandResult::Error(1);
             },
             Ok(NetworkSpec::Ipv4(_addr, net)) => {
