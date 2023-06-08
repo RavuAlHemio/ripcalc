@@ -4,3 +4,7 @@ members = [
     "ripcalc",
     "wasmripcalc",
 ]
+
+[profile.release]
+lto = true
+opt-level = "s"
