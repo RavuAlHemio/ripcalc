@@ -12,7 +12,7 @@ jobs:
       - name: trust repo directory
         run: git config --global --add safe.directory /__w/ripcalc/ripcalc
       - name: check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: run debug build
         run: cargo build --package ripcalc
       - name: run debug tests on libripcalc
@@ -20,7 +20,7 @@ jobs:
       - name: run debug tests on ripcalc
         run: cargo test --package ripcalc
       - name: upload debug binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: ripcalc-debug
           path: |
@@ -36,7 +36,7 @@ jobs:
       - name: trust repo directory
         run: git config --global --add safe.directory /__w/ripcalc/ripcalc
       - name: check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: run release build
         run: cargo build --package ripcalc --release
       - name: run release tests on libripcalc
@@ -44,7 +44,7 @@ jobs:
       - name: run release tests on ripcalc
         run: cargo test --package ripcalc --release
       - name: upload release binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: ripcalc-release
           path: |
@@ -64,13 +64,13 @@ jobs:
       - name: trust repo directory
         run: git config --global --add safe.directory /__w/ripcalc/ripcalc
       - name: check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: run wasm release build
         run: cargo build --package=wasmripcalc --target=wasm32-unknown-unknown --release
       - name: run TypeScript build
         run: cd wasmripcalc/tsglue && tsc
       - name: upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: ripcalc-wasm
           path: |
