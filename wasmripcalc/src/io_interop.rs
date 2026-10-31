@@ -2,11 +2,11 @@ use std::io;
 
 use libripcalc::output::{Color, Output};
 
-use crate::{BUFFER_SIZE, U16_BUFFER};
+use crate::{BUFFER_SIZE, U16_BUFFER, u16_buffer_len};
 
 
 #[link(wasm_import_module = "wasm_interop")]
-extern {
+extern "C" {
     fn append_output();
     fn append_error();
 }
@@ -16,7 +16,7 @@ pub(crate) fn write_to<F: FnMut()>(buf: &str, mut append_func: F) {
     for word in buf.encode_utf16() {
         unsafe { U16_BUFFER[offset] = word };
         offset += 1;
-        if offset == unsafe { U16_BUFFER.len() } {
+        if offset == u16_buffer_len() {
             // we've hit the limit; push out what we have
             unsafe { BUFFER_SIZE = offset };
             append_func();

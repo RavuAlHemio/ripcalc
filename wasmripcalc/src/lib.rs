@@ -16,11 +16,16 @@ static mut U16_BUFFER: [u16; 1024] = [0; 1024];
 
 #[no_mangle]
 pub extern "C" fn ripcalc_get_buffer_size_offset() -> *mut usize {
-    unsafe { (&mut BUFFER_SIZE) as *mut usize }
+    &raw mut BUFFER_SIZE
 }
 #[no_mangle]
 pub extern "C" fn ripcalc_get_buffer_offset() -> *mut u16 {
-    unsafe { (&mut U16_BUFFER[0]) as *mut u16 }
+    unsafe { &raw mut U16_BUFFER[0] }
+}
+
+
+pub(crate) const fn u16_buffer_len() -> usize {
+    unsafe { (*(&raw mut U16_BUFFER)).len() }
 }
 
 
