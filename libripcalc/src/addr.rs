@@ -52,8 +52,6 @@ pub struct Ipv4Address {
     addr_value: u32,
 }
 
-pub const IPV4_ZERO: Ipv4Address = Ipv4Address { addr_value: 0 };
-
 impl Ipv4Address {
     /// Constructs a new IPv4 address from its 32-bit representation, where the leftmost byte in the
     /// canonical string representation is the most significant byte (i.e. `"1.2.3.4"` ->
@@ -63,6 +61,13 @@ impl Ipv4Address {
     ) -> Ipv4Address {
         Ipv4Address {
             addr_value,
+        }
+    }
+
+    /// Constructs the zero IPv4 address, `0.0.0.0`.
+    pub const fn zero() -> Self {
+        Self {
+            addr_value: 0,
         }
     }
 
@@ -198,8 +203,6 @@ pub struct Ipv6Address {
     bottom_half: u64,
 }
 
-pub const IPV6_ZERO: Ipv6Address = Ipv6Address { top_half: 0, bottom_half: 0 };
-
 impl Ipv6Address {
     /// Constructs a new IPv6 address from its representation as a pair of 64-bit integers, where
     /// the leftmost byte in the canonical string representation is the most significant byte of
@@ -212,6 +215,14 @@ impl Ipv6Address {
         Ipv6Address {
             top_half,
             bottom_half,
+        }
+    }
+
+    /// Constructs the zero IPv6 address, `::`.
+    pub const fn zero() -> Self {
+        Self {
+            top_half: 0,
+            bottom_half: 0,
         }
     }
 
