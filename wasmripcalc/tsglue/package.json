@@ -1,0 +1,12 @@
+{
+  "name": "wasmripcalc-tsglue",
+  "type": "module",
+  "scripts": {
+    "build": "rspack build"
+  },
+  "packageManager": "yarn@4.18.1",
+  "devDependencies": {
+    "@rspack/cli": "^2.3.0",
+    "@rspack/core": "^2.3.0"
+  }
+}

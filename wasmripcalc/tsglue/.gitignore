@@ -1,2 +1,6 @@
 ripcalc.js
 *.js.map
+
+.yarn
+.pnp.cjs
+.pnp.loader.mjs
